@@ -1,6 +1,6 @@
 # Design Document: AI-Powered Rural Credit Decision Support System
 
-## Overview
+## Overviews
 
 The AI-powered rural credit decision support system is designed to address critical credit capability gaps in rural India by providing personalized, data-driven guidance for borrowing decisions. The system combines machine learning models with domain expertise to align credit access with volatile livelihood cash-flow cycles, reduce loan stress pathways, and improve financial outcomes for underserved rural populations.
 
