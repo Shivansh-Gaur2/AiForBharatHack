@@ -16,6 +16,12 @@ The AI-powered rural credit decision support system addresses critical credit ca
 - **Livelihood_Cycle**: Seasonal patterns of income and expenses specific to agricultural and rural activities
 - **Income_Volatility**: Measure of unpredictability in borrower's income streams
 - **Credit_Guidance**: Personalized recommendations for loan timing, amounts, and terms
+- **Parametric_Trigger_Engine**: Automated system that restructures loans via bank APIs based on weather and market data triggers
+- **Inference_Engine**: AI component that auto-calculates cash flow using District Scale of Finance and Agmarknet data
+- **Refinance_Calculator**: Tool that calculates potential savings from debt consolidation to incentivize disclosure
+- **LokOS**: Local government operating system for SHG (Self-Help Group) data integration
+- **Scale_of_Finance**: District-level agricultural financing norms and cost estimates
+- **Agmarknet**: Government agricultural market price information network
 
 ## Requirements
 
@@ -138,3 +144,39 @@ The AI-powered rural credit decision support system addresses critical credit ca
 3. WHEN displaying financial concepts, THE AI_Advisor SHALL use culturally appropriate examples
 4. THE AI_Advisor SHALL work effectively on basic mobile devices with limited connectivity
 5. WHEN connectivity is poor, THE AI_Advisor SHALL provide offline functionality for core features
+
+### Requirement 11: Parametric Trigger Engine (Bank Disconnect Bridge)
+
+**User Story:** As a rural borrower facing weather or market shocks, I want my loan to be automatically restructured when trigger conditions are met, so that I can avoid default without manual intervention.
+
+#### Acceptance Criteria
+
+1. WHEN parametric trigger conditions are met, THE Parametric_Trigger_Engine SHALL automatically initiate loan restructuring
+2. THE Parametric_Trigger_Engine SHALL integrate with bank APIs to execute restructuring actions
+3. WHEN weather data indicates crop failure thresholds, THE Parametric_Trigger_Engine SHALL trigger appropriate loan modifications
+4. WHEN market price data falls below defined thresholds, THE Parametric_Trigger_Engine SHALL initiate price-based restructuring
+5. THE Parametric_Trigger_Engine SHALL notify borrowers and lenders of all automatic restructuring actions
+
+### Requirement 12: Inference Engine (Data Friction Bridge)
+
+**User Story:** As a rural borrower with limited time and literacy, I want the system to automatically calculate my cash flow using available data sources, so that I don't have to manually enter detailed financial information.
+
+#### Acceptance Criteria
+
+1. WHEN a borrower's crop and location are known, THE Inference_Engine SHALL auto-calculate expected cash flow using District Scale of Finance data
+2. THE Inference_Engine SHALL integrate with Agmarknet to fetch real-time market price data
+3. WHEN calculating cash flow, THE Inference_Engine SHALL combine Scale of Finance norms with actual market prices
+4. THE Inference_Engine SHALL allow borrowers to override auto-calculated values with actual data
+5. WHEN auto-calculated data is used, THE Inference_Engine SHALL clearly indicate data sources and confidence levels
+
+### Requirement 13: Refinance Calculator and LokOS Integration (Hidden Debt Bridge)
+
+**User Story:** As a rural borrower with multiple informal loans, I want to understand refinancing benefits and have my SHG loans automatically tracked, so that I'm incentivized to disclose all debt and get accurate guidance.
+
+#### Acceptance Criteria
+
+1. WHEN a borrower discloses informal loans, THE Refinance_Calculator SHALL show potential savings from debt consolidation
+2. THE Refinance_Calculator SHALL calculate interest savings, reduced monthly payments, and improved repayment terms
+3. THE AI_Advisor SHALL integrate with LokOS to automatically fetch SHG loan data
+4. WHEN LokOS data is available, THE Multi_Loan_Tracker SHALL automatically include SHG loans in exposure calculations
+5. THE Refinance_Calculator SHALL provide personalized refinancing recommendations based on total debt exposure

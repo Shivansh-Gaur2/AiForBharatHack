@@ -52,12 +52,22 @@ graph TB
     Gateway --> CashFlow
     Gateway --> Guidance
     Gateway --> Alert
+    Gateway --> ParametricTrigger[Parametric Trigger Engine]
+    Gateway --> Inference[Inference Engine]
+    Gateway --> Refinance[Refinance Calculator]
     
     Profile --> RiskML
     Risk --> RiskML
     CashFlow --> CashFlowML
     Alert --> EarlyWarningML
     Guidance --> ScenarioML
+    
+    ParametricTrigger --> ExternalAPI
+    ParametricTrigger --> BankAPI[Bank APIs]
+    Inference --> ScaleOfFinance[Scale of Finance DB]
+    Inference --> Agmarknet[Agmarknet API]
+    Refinance --> LokOS[LokOS API]
+    Refinance --> LoanDB
     
     Profile --> UserDB
     Risk --> LoanDB
@@ -165,6 +175,54 @@ graph TB
 - Uses multiple ML models for comprehensive analysis
 - Formats output for user interface presentation
 
+### 8. Parametric Trigger Engine (Bank Disconnect Bridge)
+**Purpose**: Automatically restructures loans via bank APIs when parametric trigger conditions (weather events, market price drops) are met, eliminating manual intervention delays.
+
+**Key Interfaces**:
+- `registerTrigger(profileId: ProfileId, loanId: LoanId, triggerConditions: TriggerConditions): TriggerId`
+- `evaluateTriggers(externalData: ExternalDataUpdate): TriggerEvaluation[]`
+- `executeLoanRestructuring(triggerId: TriggerId, bankApi: BankAPI): RestructuringResult`
+- `notifyRestructuring(profileId: ProfileId, restructuringDetails: RestructuringDetails): NotificationStatus`
+
+**Integration Points**:
+- Consumes weather data from External Data APIs
+- Integrates with Agmarknet for market price monitoring
+- Connects to bank APIs for automatic loan modification
+- Triggers notifications through Alert Service
+- Updates loan status in Multi-Loan Tracker
+
+### 9. Inference Engine (Data Friction Bridge)
+**Purpose**: Automatically calculates borrower cash flow using District Scale of Finance norms and Agmarknet market data, reducing manual data entry burden.
+
+**Key Interfaces**:
+- `inferCashFlow(profileId: ProfileId, cropInfo: CropInfo, location: Location): InferredCashFlow`
+- `fetchScaleOfFinance(district: District, crop: Crop, season: Season): FinanceScale`
+- `fetchMarketPrices(commodity: Commodity, market: Market, dateRange: DateRange): PriceData[]`
+- `allowOverride(profileId: ProfileId, inferredData: InferredCashFlow, actualData: ActualCashFlow): CashFlowData`
+
+**Integration Points**:
+- Integrates with District Scale of Finance databases
+- Connects to Agmarknet API for real-time price data
+- Feeds calculated cash flow to Cash Flow Service
+- Provides data confidence indicators to Profile Service
+- Supports manual override through user interface
+
+### 10. Refinance Calculator and LokOS Integration (Hidden Debt Bridge)
+**Purpose**: Incentivizes debt disclosure by showing refinancing benefits and automatically fetches SHG loan data from LokOS to reduce hidden debt.
+
+**Key Interfaces**:
+- `calculateRefinanceBenefits(profileId: ProfileId, disclosedLoans: LoanInfo[]): RefinancingAnalysis`
+- `fetchSHGLoans(profileId: ProfileId, lokosApi: LokOSAPI): SHGLoanData[]`
+- `compareDebtScenarios(currentDebt: DebtExposure, consolidatedDebt: ConsolidatedDebt): ComparisonResult`
+- `generateRefinancingPlan(profileId: ProfileId, totalExposure: DebtExposure): RefinancingPlan`
+
+**Integration Points**:
+- Integrates with LokOS API for SHG loan data
+- Consumes debt data from Multi-Loan Tracker
+- Provides refinancing analysis to Guidance Service
+- Updates total exposure calculations automatically
+- Presents incentive-based recommendations through UI
+
 ## Data Models
 
 ### Core Data Structures
@@ -239,6 +297,96 @@ interface CreditGuidance {
   riskAssessment: RiskSummary;
   alternativeOptions: AlternativeOption[];
   reasoning: GuidanceReasoning;
+}
+
+interface ParametricTrigger {
+  triggerId: TriggerId;
+  profileId: ProfileId;
+  loanId: LoanId;
+  triggerType: 'WEATHER' | 'MARKET_PRICE' | 'COMPOSITE';
+  conditions: TriggerCondition[];
+  restructuringAction: RestructuringAction;
+  status: 'ACTIVE' | 'TRIGGERED' | 'EXECUTED' | 'EXPIRED';
+  createdAt: Timestamp;
+  triggeredAt?: Timestamp;
+}
+
+interface TriggerCondition {
+  dataSource: 'WEATHER_API' | 'AGMARKNET' | 'IMD';
+  parameter: string; // e.g., 'rainfall', 'temperature', 'price'
+  threshold: number;
+  operator: 'LESS_THAN' | 'GREATER_THAN' | 'EQUALS' | 'BETWEEN';
+  duration?: Duration; // sustained condition period
+}
+
+interface RestructuringAction {
+  actionType: 'EXTEND_TENURE' | 'REDUCE_EMI' | 'MORATORIUM' | 'INTEREST_WAIVER';
+  parameters: RestructuringParameters;
+  bankApiEndpoint: string;
+  notificationTemplate: NotificationTemplate;
+}
+
+interface InferredCashFlow {
+  profileId: ProfileId;
+  inferenceMethod: 'SCALE_OF_FINANCE' | 'AGMARKNET' | 'HYBRID';
+  cropBasedEstimate: CropEstimate[];
+  marketPriceData: MarketPriceData[];
+  calculatedIncome: Amount;
+  calculatedExpenses: Amount;
+  confidenceLevel: number; // 0-1
+  dataSources: DataSource[];
+  allowsOverride: boolean;
+  inferredAt: Timestamp;
+}
+
+interface CropEstimate {
+  crop: Crop;
+  area: number; // in hectares
+  scaleOfFinanceCost: Amount;
+  expectedYield: number;
+  expectedPrice: Amount;
+  projectedIncome: Amount;
+  district: District;
+  season: Season;
+}
+
+interface RefinancingAnalysis {
+  profileId: ProfileId;
+  currentDebtScenario: DebtScenario;
+  consolidatedDebtScenario: DebtScenario;
+  potentialSavings: SavingsBreakdown;
+  recommendations: RefinancingRecommendation[];
+  incentiveMessage: string;
+  calculatedAt: Timestamp;
+}
+
+interface DebtScenario {
+  totalOutstanding: Amount;
+  monthlyPayment: Amount;
+  averageInterestRate: number;
+  totalInterestOverLife: Amount;
+  debtToIncomeRatio: number;
+  loanCount: number;
+}
+
+interface SavingsBreakdown {
+  interestSavings: Amount;
+  monthlyPaymentReduction: Amount;
+  tenureOptimization: Duration;
+  totalLifetimeSavings: Amount;
+  breakEvenPeriod: Duration;
+}
+
+interface SHGLoanData {
+  loanId: string;
+  shgName: string;
+  loanAmount: Amount;
+  outstandingAmount: Amount;
+  interestRate: number;
+  disbursementDate: Date;
+  source: 'LOKOS';
+  verified: boolean;
+  lastUpdated: Timestamp;
 }
 ```
 
@@ -353,6 +501,18 @@ After analyzing all acceptance criteria, I identified several areas where proper
 **Property 15: Accessibility and Localization**
 *For any* user interaction, the system should support multiple local languages, provide voice-based interaction capabilities, work effectively on basic mobile devices with limited connectivity, and provide offline functionality for core features.
 **Validates: Requirements 10.1, 10.2, 10.4, 10.5**
+
+**Property 16: Parametric Trigger Execution**
+*For any* registered parametric trigger, when trigger conditions are met based on weather or market data, the system should automatically initiate loan restructuring via bank APIs and notify all relevant parties.
+**Validates: Requirements 11.1, 11.2, 11.3, 11.4, 11.5**
+
+**Property 17: Automated Cash Flow Inference**
+*For any* borrower with known crop and location data, the inference engine should automatically calculate cash flow using District Scale of Finance and Agmarknet data, clearly indicate data sources and confidence levels, and allow manual overrides.
+**Validates: Requirements 12.1, 12.2, 12.3, 12.4, 12.5**
+
+**Property 18: Refinancing Incentive and LokOS Integration**
+*For any* borrower disclosing informal loans, the system should calculate and display refinancing benefits, automatically fetch and include SHG loans from LokOS in exposure calculations, and provide personalized refinancing recommendations.
+**Validates: Requirements 13.1, 13.2, 13.3, 13.4, 13.5**
 
 ## Error Handling
 
