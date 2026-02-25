@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\risk_assessment\app\infrastructure\data_providers.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 1.0, 100000, 'active_loan_count', 'age', 'annual_income', 'credit_utilisation', 'debt_to_income_ratio', 'dependents', 'has_defaults', 'has_irrigation', 'months_below_average', 'on_time_ratio', 'personal', 'seasonal_variance', 'total_outstanding', 'volatility']

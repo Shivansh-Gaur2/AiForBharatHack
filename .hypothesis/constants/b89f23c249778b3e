@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\profile_service\app\domain\validators.py
+# hypothesis_version: 6.151.9
+
+[1.01, 100, 2000, 2100, 'District is required', 'F', 'M', 'O', 'State is required', 'age', 'district', 'gender', 'land_holding', 'name', 'state']

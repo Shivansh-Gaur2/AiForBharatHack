@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\shared\localization\catalog_mr.py
+# hypothesis_version: 6.151.9
+
+['alert.severity.info', 'consent.your_rights', 'cultural.kcc_benefit', 'cultural.shg_benefit', 'general.error', 'general.loading', 'general.success', 'general.welcome', 'guidance.emi_info', 'loan.emi_due', 'loan.status.active', 'loan.status.closed', 'risk.category.high', 'risk.category.low', 'risk.category.medium', 'risk.factor.high_dti', 'अत्यंत उच्च जोखीम', 'उच्च जोखीम', 'कमी जोखीम', 'गंभीर इशारा', 'जोखीम मूल्यांकन', 'पतमूल्यांकन', 'बंद', 'मध्यम जोखीम', 'माहिती', 'यशस्वीरित्या पूर्ण!', 'सक्रिय', 'सावधान']

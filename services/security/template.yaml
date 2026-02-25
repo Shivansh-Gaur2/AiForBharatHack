@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Security Service - Consent, Audit, Data Lineage & Retention
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: python3.12
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+        ENVIRONMENT: production
+
+Resources:
+  # DynamoDB table
+  SecurityTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: rural-credit-security
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      Tags:
+        - Key: service
+          Value: security
+        - Key: project
+          Value: rural-credit-advisor
+
+  # SNS Topic for events
+  SecurityEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: security-events
+      Tags:
+        - Key: service
+          Value: security
+
+  # Lambda function
+  SecurityFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.security.app.main.handler
+      CodeUri: ../../
+      Description: Security Service Lambda
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !Ref SecurityTable
+          SNS_TOPIC_ARN: !Ref SecurityEventsTopic
+          COGNITO_USER_POOL_ID: ""
+          COGNITO_APP_CLIENT_ID: ""
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SecurityTable
+        - SNSPublishMessagePolicy:
+            TopicArn: !Ref SecurityEventsTopic
+      Events:
+        ApiCatchAll:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+        HealthCheck:
+          Type: HttpApi
+          Properties:
+            Path: /health
+            Method: GET
+
+Outputs:
+  SecurityApi:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  SecurityFunction:
+    Description: Lambda function ARN
+    Value: !GetAtt SecurityFunction.Arn
+  SecurityTable:
+    Description: DynamoDB table name
+    Value: !Ref SecurityTable

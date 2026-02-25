@@ -1,0 +1,109 @@
+"""FastAPI application + Mangum handler for AWS Lambda.
+
+This is the composition root — where we wire dependencies together:
+- Domain services get their concrete infrastructure adapters injected
+- FastAPI routers are registered
+- Mangum wraps the ASGI app for Lambda invocation
+"""
+
+from __future__ import annotations
+
+import logging
+
+import boto3
+from fastapi import FastAPI
+from mangum import Mangum
+
+from services.shared.events import InMemoryEventPublisher
+
+from .api.routes import router, set_profile_service
+from .config import Settings
+from .domain.services import ProfileService
+from .infrastructure.dynamodb_repo import DynamoDBProfileRepository
+from .infrastructure.sqs_events import create_profile_event_publisher
+
+# ---------------------------------------------------------------------------
+# Settings & Logging
+# ---------------------------------------------------------------------------
+settings = Settings.from_env()
+
+logging.basicConfig(level=getattr(logging, settings.log_level))
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# FastAPI App
+# ---------------------------------------------------------------------------
+app = FastAPI(
+    title="Rural Credit Advisor — Profile Service",
+    description="Manages comprehensive borrower profiles for rural credit advisory.",
+    version="1.0.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
+)
+
+# ---------------------------------------------------------------------------
+# Wire dependencies (composition root)
+# ---------------------------------------------------------------------------
+def _create_dynamodb_resource():
+    kwargs = {"region_name": settings.aws_region}
+    if settings.dynamodb_endpoint_url:
+        kwargs["endpoint_url"] = settings.dynamodb_endpoint_url
+    return boto3.resource("dynamodb", **kwargs)
+
+
+def _create_sns_client():
+    kwargs = {"region_name": settings.aws_region}
+    if settings.sns_endpoint_url:
+        kwargs["endpoint_url"] = settings.sns_endpoint_url
+    return boto3.client("sns", **kwargs)
+
+
+def _bootstrap() -> None:
+    """Wire all dependencies and register routers."""
+    # Repository adapter
+    dynamodb = _create_dynamodb_resource()
+    repository = DynamoDBProfileRepository(
+        dynamodb_resource=dynamodb,
+        table_name=settings.dynamodb_table_name,
+    )
+
+    # Event publisher adapter
+    if settings.sns_topic_arn:
+        sns_client = _create_sns_client()
+        event_publisher = create_profile_event_publisher(
+            sns_client=sns_client,
+            topic_arn=settings.sns_topic_arn,
+        )
+    else:
+        # Local dev — just log events
+        event_publisher = InMemoryEventPublisher()
+        logger.info("Using InMemoryEventPublisher (no SNS topic configured)")
+
+    # Domain service
+    profile_service = ProfileService(
+        repository=repository,
+        event_publisher=event_publisher,
+    )
+
+    # Inject into routes
+    set_profile_service(profile_service)
+    logger.info("Profile service bootstrapped (env=%s)", settings.environment)
+
+
+# Bootstrap on import (runs once per Lambda cold start)
+_bootstrap()
+
+# Register router
+app.include_router(router)
+
+
+# Health check
+@app.get("/health")
+def health():
+    return {"status": "healthy", "service": "profile-service"}
+
+
+# ---------------------------------------------------------------------------
+# Lambda handler (via Mangum)
+# ---------------------------------------------------------------------------
+handler = Mangum(app, lifespan="off")

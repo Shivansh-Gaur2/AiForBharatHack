@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\guidance\app\domain\models.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.15, 0.25, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.5, 9.0, 100, 2000, 5000, 25000, 50000, 100000, 200000, 300000, 'ACCEPTABLE', 'ACTIVE', 'BUSINESS_EXPANSION', 'CROP_CULTIVATION', 'CROP_INSURANCE', 'Cash Flow Stability', 'Current Debt Burden', 'DEBT_CONSOLIDATION', 'DEBT_RESTRUCTURING', 'DRAFT', 'EDUCATION', 'EQUIPMENT_PURCHASE', 'EXPIRED', 'FORMAL', 'Flexible repayment', 'GOOD', 'GOVERNMENT_SCHEME', 'Government backing', 'HIGH', 'HOUSING', 'IRRIGATION', 'Insurance coverage', 'LAND_IMPROVEMENT', 'LIVESTOCK_PURCHASE', 'LOW', 'Loan Timing', 'Low premiums', 'Lower interest rate', 'MEDICAL', 'MEDIUM', 'NEGATIVE', 'NEUTRAL', 'OPTIMAL', 'OTHER', 'POOR', 'POSITIVE', 'Recommended Amount', 'Risk Profile', 'SEMI_FORMAL', 'SHG_LOAN', 'SUPERSEDED', 'Smaller amount', 'WORKING_CAPITAL', '_']

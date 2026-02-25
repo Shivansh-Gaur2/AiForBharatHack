@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: "Rural Credit Advisor – Early Warning & Scenarios Service"
+
+Globals:
+  Function:
+    Runtime: python3.13
+    MemorySize: 256
+    Timeout: 30
+    Environment:
+      Variables:
+        DYNAMODB_TABLE_NAME: !Ref EarlyWarningTable
+        SNS_TOPIC_ARN: !Ref EarlyWarningTopic
+        AWS_REGION_OVERRIDE: !Ref AWS::Region
+        ENVIRONMENT: production
+
+Parameters:
+  StageName:
+    Type: String
+    Default: prod
+
+Resources:
+  # ---------- DynamoDB ----------
+  EarlyWarningTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: rural-credit-early-warning
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  # ---------- SNS ----------
+  EarlyWarningTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: rural-credit-early-warning-events
+
+  # ---------- Lambda ----------
+  EarlyWarningFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.early_warning.app.main.handler
+      CodeUri: ../../
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EarlyWarningTable
+        - SNSPublishMessagePolicy:
+            TopicArn: !Ref EarlyWarningTopic
+      Events:
+        ApiCatchAll:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+            ApiId: !Ref HttpApi
+
+  # ---------- API Gateway ----------
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref StageName
+
+Outputs:
+  ApiUrl:
+    Description: Early Warning API endpoint
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"
+  TableName:
+    Value: !Ref EarlyWarningTable
+  TopicArn:
+    Value: !Ref EarlyWarningTopic

@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\shared\localization\catalog_ta.py
+# hypothesis_version: 6.151.9
+
+['alert.severity.info', 'consent.your_rights', 'cultural.kcc_benefit', 'cultural.shg_benefit', 'general.error', 'general.loading', 'general.success', 'general.welcome', 'guidance.emi_info', 'loan.emi_due', 'loan.status.active', 'loan.status.closed', 'risk.category.high', 'risk.category.low', 'risk.category.medium', 'risk.factor.high_dti', 'அதிக ஆபத்து', 'அவசர எச்சரிக்கை', 'ஆபத்து மதிப்பீடு', 'எச்சரிக்கை', 'கடன் மதிப்பீடு', 'குறைந்த ஆபத்து', 'செயலில்', 'தகவல்', 'நடுத்தர ஆபத்து', 'மிக அதிக ஆபத்து', 'மூடப்பட்டது']

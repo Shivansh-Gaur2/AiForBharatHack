@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\early_warning\app\domain\services.py
+# hypothesis_version: 6.151.9
+
+[0.0, 5000.0, 'alert.escalated', 'alert.generated', 'alert_type', 'days_overdue_avg', 'debt_to_income_ratio', 'missed_payments', 'monthly_obligations', 'new_severity', 'profile_id', 'reason', 'risk_level', 'scenario.simulated', 'scenario_type', 'severity', 'title']

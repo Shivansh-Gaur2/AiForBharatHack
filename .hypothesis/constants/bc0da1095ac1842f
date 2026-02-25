@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\loan_tracker\app\domain\validators.py
+# hypothesis_version: 6.151.9
+
+[1.1, 365, 'days_overdue', 'disbursement_date', 'emi_amount', 'lender_name', 'principal', 'repayment_amount', 'tenure_months']

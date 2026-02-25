@@ -1,0 +1,118 @@
+# SAM Template — Profile Service
+# Deploys FastAPI as a Lambda function behind API Gateway HTTP API.
+#
+# Deploy: sam build && sam deploy --guided
+
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Rural Credit Advisor — Profile Service.
+  Manages borrower profiles with income volatility analysis.
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: python3.12
+    Environment:
+      Variables:
+        DYNAMODB_TABLE_NAME: !Ref ProfilesTable
+        SNS_TOPIC_ARN: !Ref ProfileEventsTopic
+        AWS_REGION: !Ref AWS::Region
+        ENVIRONMENT: production
+        SKIP_AUTH: "false"
+        LOG_LEVEL: INFO
+
+Resources:
+  # -----------------------------------------------------------------------
+  # Lambda Function
+  # -----------------------------------------------------------------------
+  ProfileServiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.profile_service.app.main.handler
+      CodeUri: ../
+      Description: Profile Service — borrower profile management
+      Architectures:
+        - x86_64
+      Events:
+        ApiCatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ProfileHttpApi
+            Path: /{proxy+}
+            Method: ANY
+        HealthCheck:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ProfileHttpApi
+            Path: /health
+            Method: GET
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProfilesTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt ProfileEventsTopic.TopicName
+
+  # -----------------------------------------------------------------------
+  # API Gateway (HTTP API — cheaper than REST API)
+  # -----------------------------------------------------------------------
+  ProfileHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: v1
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - PUT
+          - DELETE
+        AllowHeaders:
+          - "*"
+
+  # -----------------------------------------------------------------------
+  # DynamoDB Table
+  # -----------------------------------------------------------------------
+  ProfilesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: rural-credit-profiles
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  # -----------------------------------------------------------------------
+  # SNS Topic — profile events (fan-out to downstream services)
+  # -----------------------------------------------------------------------
+  ProfileEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: rural-credit-profile-events
+
+Outputs:
+  ProfileApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ProfileHttpApi}.execute-api.${AWS::Region}.amazonaws.com/v1/"
+
+  ProfilesTableName:
+    Description: "DynamoDB table name"
+    Value: !Ref ProfilesTable
+
+  ProfileEventsTopicArn:
+    Description: "SNS topic ARN for profile events"
+    Value: !Ref ProfileEventsTopic

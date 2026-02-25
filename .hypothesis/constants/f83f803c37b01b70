@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\shared\localization\catalog_kn.py
+# hypothesis_version: 6.151.9
+
+['alert.severity.info', 'consent.your_rights', 'cultural.kcc_benefit', 'cultural.shg_benefit', 'general.error', 'general.loading', 'general.success', 'general.welcome', 'guidance.emi_info', 'loan.emi_due', 'loan.status.active', 'loan.status.closed', 'risk.category.high', 'risk.category.low', 'risk.category.medium', 'risk.factor.high_dti', 'ಅತಿ ಹೆಚ್ಚಿನ ಅಪಾಯ', 'ಅಪಾಯ ಮೌಲ್ಯಮಾಪನ', 'ಎಚ್ಚರಿಕೆ', 'ಕಡಿಮೆ ಅಪಾಯ', 'ಕ್ರೆಡಿಟ್ ಮೌಲ್ಯಮಾಪನ', 'ತೀವ್ರ ಎಚ್ಚರಿಕೆ', 'ಮಧ್ಯಮ ಅಪಾಯ', 'ಮಾಹಿತಿ', 'ಮುಚ್ಚಲಾಗಿದೆ', 'ಸಕ್ರಿಯ', 'ಹೆಚ್ಚಿನ ಅಪಾಯ']

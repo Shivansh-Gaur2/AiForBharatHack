@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\shared\validation\__init__.py
+# hypothesis_version: 6.151.9
+
+[0.0, 60.0, 100.0, 240, 500, 5000, 2500000, 5000000, 'annual_income', 'dependents', 'interest_rate', 'land_holding_acres', 'loan_amount']

@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\cashflow_service\app\domain\validators.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.1, 1.0, 2.0, 2000, 2100, 5000000, 'No records provided', 'amount', 'horizon_months', 'market_adjustment', 'month', 'profile_id', 'records', 'records_count', 'weather_adjustment', 'year']

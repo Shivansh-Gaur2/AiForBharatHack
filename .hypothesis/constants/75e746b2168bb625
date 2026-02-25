@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\early_warning\app\infrastructure\data_providers.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.25, 1.0, 450.0, 8000.0, 2026, 3000, 4500, 5000, 7000, 7500, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000, 20000, 28000, 30000, 45000, 50000, 'active_loan_count', 'days_overdue_avg', 'debt_to_income_ratio', 'emergency_reserve', 'max_affordable_emi', 'missed_payments', 'monthly_obligations', 'monthly_surplus_avg', 'on_time_ratio', 'recommended_emi', 'total_outstanding']

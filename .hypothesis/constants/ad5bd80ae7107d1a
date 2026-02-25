@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\risk_assessment\app\domain\services.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.5, 1.0, 'active_loan_count', 'age', 'annual_income', 'category', 'confidence', 'credit_utilisation', 'debt_to_income_ratio', 'dependents', 'description', 'has_defaults', 'has_irrigation', 'key_factors', 'months_below_average', 'on_time_ratio', 'profile_id', 'recommendations', 'risk.assessed', 'risk_category', 'risk_score', 'score', 'seasonal_variance', 'summary', 'top_factors', 'total_outstanding', 'type', 'weight']

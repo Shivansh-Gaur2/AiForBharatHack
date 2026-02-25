@@ -1,0 +1,146 @@
+# SAM Template — Risk Assessment Service
+# Deploys FastAPI as a Lambda function behind API Gateway HTTP API.
+#
+# Deploy: sam build && sam deploy --guided
+
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Rural Credit Advisor — Risk Assessment Service.
+  Weighted multi-factor risk scoring for rural borrowers.
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: python3.12
+    Environment:
+      Variables:
+        DYNAMODB_TABLE_NAME: !Ref RiskTable
+        SNS_TOPIC_ARN: !Ref RiskEventsTopic
+        PROFILE_SERVICE_URL: !Ref ProfileServiceUrl
+        LOAN_SERVICE_URL: !Ref LoanServiceUrl
+        AWS_REGION: !Ref AWS::Region
+        ENVIRONMENT: production
+        SKIP_AUTH: "false"
+        LOG_LEVEL: INFO
+
+Parameters:
+  ProfileServiceUrl:
+    Type: String
+    Default: ""
+    Description: URL of the Profile Service API
+
+  LoanServiceUrl:
+    Type: String
+    Default: ""
+    Description: URL of the Loan Tracker Service API
+
+Resources:
+  # -----------------------------------------------------------------------
+  # Lambda Function
+  # -----------------------------------------------------------------------
+  RiskAssessmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.risk_assessment.app.main.handler
+      CodeUri: ../
+      Description: Risk Assessment Service — multi-factor risk scoring
+      Architectures:
+        - x86_64
+      Events:
+        ApiCatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RiskHttpApi
+            Path: /{proxy+}
+            Method: ANY
+        HealthCheck:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RiskHttpApi
+            Path: /health
+            Method: GET
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RiskTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt RiskEventsTopic.TopicName
+
+  # -----------------------------------------------------------------------
+  # API Gateway (HTTP API)
+  # -----------------------------------------------------------------------
+  RiskHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: v1
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - PUT
+          - DELETE
+        AllowHeaders:
+          - "*"
+
+  # -----------------------------------------------------------------------
+  # DynamoDB Table
+  # -----------------------------------------------------------------------
+  RiskTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: rural-credit-risk
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  # -----------------------------------------------------------------------
+  # SNS Topic — risk events (fan-out to early warning, notifications)
+  # -----------------------------------------------------------------------
+  RiskEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: rural-credit-risk-events
+
+  # -----------------------------------------------------------------------
+  # SNS Subscription — listen for loan events to trigger re-assessment
+  # -----------------------------------------------------------------------
+  LoanEventsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: lambda
+      TopicArn: !Ref LoanEventsTopicArn
+      Endpoint: !GetAtt RiskAssessmentFunction.Arn
+
+  LoanEventsTopicArn:
+    Type: String
+    Default: ""
+    Description: ARN of the Loan Events SNS topic (cross-service)
+
+Outputs:
+  RiskApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${RiskHttpApi}.execute-api.${AWS::Region}.amazonaws.com/v1/"
+
+  RiskTableName:
+    Description: "DynamoDB table name"
+    Value: !Ref RiskTable
+
+  RiskEventsTopicArn:
+    Description: "SNS topic ARN for risk events"
+    Value: !Ref RiskEventsTopic

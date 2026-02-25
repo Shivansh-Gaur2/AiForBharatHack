@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\loan_tracker\app\domain\services.py
+# hypothesis_version: 6.151.9
+
+[500, '; ', 'Invalid loan data: ', 'Invalid repayment: ', 'amount', 'lender', 'loan.closed', 'loan.status_changed', 'loan.tracked', 'new_status', 'old_status', 'outstanding', 'principal', 'profile_id', 'source_type', 'status']

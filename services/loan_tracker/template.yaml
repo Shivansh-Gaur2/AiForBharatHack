@@ -1,0 +1,125 @@
+# SAM Template — Loan Tracker Service
+# Deploys FastAPI as a Lambda function behind API Gateway HTTP API.
+#
+# Deploy: sam build && sam deploy --guided
+
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Rural Credit Advisor — Loan Tracker Service.
+  Multi-source loan tracking with debt exposure analysis.
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: python3.12
+    Environment:
+      Variables:
+        DYNAMODB_TABLE_NAME: !Ref LoansTable
+        SNS_TOPIC_ARN: !Ref LoanEventsTopic
+        PROFILE_SERVICE_URL: !Ref ProfileServiceUrl
+        AWS_REGION: !Ref AWS::Region
+        ENVIRONMENT: production
+        SKIP_AUTH: "false"
+        LOG_LEVEL: INFO
+
+Parameters:
+  ProfileServiceUrl:
+    Type: String
+    Default: ""
+    Description: URL of the Profile Service API
+
+Resources:
+  # -----------------------------------------------------------------------
+  # Lambda Function
+  # -----------------------------------------------------------------------
+  LoanTrackerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.loan_tracker.app.main.handler
+      CodeUri: ../
+      Description: Loan Tracker Service — multi-source loan tracking
+      Architectures:
+        - x86_64
+      Events:
+        ApiCatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref LoanHttpApi
+            Path: /{proxy+}
+            Method: ANY
+        HealthCheck:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref LoanHttpApi
+            Path: /health
+            Method: GET
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LoansTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt LoanEventsTopic.TopicName
+
+  # -----------------------------------------------------------------------
+  # API Gateway (HTTP API)
+  # -----------------------------------------------------------------------
+  LoanHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: v1
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - PUT
+          - DELETE
+        AllowHeaders:
+          - "*"
+
+  # -----------------------------------------------------------------------
+  # DynamoDB Table
+  # -----------------------------------------------------------------------
+  LoansTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: rural-credit-loans
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  # -----------------------------------------------------------------------
+  # SNS Topic — loan events (fan-out to risk assessment, notifications)
+  # -----------------------------------------------------------------------
+  LoanEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: rural-credit-loan-events
+
+Outputs:
+  LoanApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${LoanHttpApi}.execute-api.${AWS::Region}.amazonaws.com/v1/"
+
+  LoansTableName:
+    Description: "DynamoDB table name"
+    Value: !Ref LoansTable
+
+  LoanEventsTopicArn:
+    Description: "SNS topic ARN for loan events"
+    Value: !Ref LoanEventsTopic

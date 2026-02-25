@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\cashflow_service\app\domain\models.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.15, 0.4, 0.6, 1.0, 1.28, 30.0, 40.0, 99.0, 100.0, 500, 1000, 2000, 'Baseline', 'CROP_INCOME', 'EDUCATION', 'EQUIPMENT', 'GOVERNMENT_SUBSIDY', 'HEALTHCARE', 'HIGH', 'HOUSEHOLD', 'INFLOW', 'LABOUR_EXPENSE', 'LABOUR_INCOME', 'LIVESTOCK_INCOME', 'LOAN_REPAYMENT', 'LOW', 'MEDIUM', 'Market', 'OTHER_EXPENSE', 'OTHER_INCOME', 'OUTFLOW', 'REMITTANCE', 'SEED_FERTILIZER', 'Weather', 'negative', 'neutral', 'positive', 'seasonal-avg-v1']

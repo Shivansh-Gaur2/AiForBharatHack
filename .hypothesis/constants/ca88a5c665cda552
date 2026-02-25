@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\cashflow_service\app\infrastructure\data_providers.py
+# hypothesis_version: 6.151.9
+
+[0.0, 1.0, 5000.0, 100000.0, 'FARMER', 'annual_income', 'district', 'occupation', 'primary_crop', 'rice', 'unknown']

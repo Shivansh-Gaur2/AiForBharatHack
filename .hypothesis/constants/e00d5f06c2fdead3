@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\security\app\domain\models.py
+# hypothesis_version: 6.151.9
+
+[365, 730, 1095, 1825, 2555, 'ALERT', 'ANONYMIZE', 'ARCHIVE', 'CASH_FLOW', 'CONSENT_GRANTED', 'CONSENT_REVOKED', 'CREDIT_ASSESSMENT', 'DATA_ACCESS', 'DATA_DELETION', 'DATA_EXPORT', 'DATA_MODIFICATION', 'DATA_SHARING_LENDER', 'DELETE', 'EARLY_WARNING_ALERTS', 'EXPIRED', 'Early warning alerts', 'FINANCIAL', 'GRANTED', 'GUIDANCE', 'LOCATION', 'LOGIN_FAILURE', 'LOGIN_SUCCESS', 'Location data', 'MARKETING', 'PERSONAL_IDENTITY', 'RESEARCH_ANONYMIZED', 'RETENTION_PURGE', 'REVOKED', 'RISK_ASSESSMENT', 'RISK_SCORING', 'ROLE_CHANGE', 'action', 'data_category', 'description', 'retention_days']

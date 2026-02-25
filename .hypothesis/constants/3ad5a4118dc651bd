@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\early_warning\app\domain\models.py
+# hypothesis_version: 6.151.9
+
+[0.0, 0.1, 0.3, 0.4, 0.5, 0.6, 0.7, 1.0, 3.0, 10.0, 20.0, 30.0, 99.0, 100.0, 5000.0, 100, 500, 'ACKNOWLEDGED', 'ACTIVE', 'COMBINED', 'DEBT_EXPOSURE', 'Debt Levels Too High', 'EXPIRED', 'Financial Alert', 'HIGH', 'IMMEDIATE', 'INCOME_SHOCK', 'INCOME_VOLATILITY', 'MARKET_VOLATILITY', 'MEDIUM', 'MEDIUM_TERM', 'REPAYMENT_HISTORY', 'RESOLVED', 'SHORT_TERM', 'WEATHER_IMPACT', 'i ', '⚠️ ', '🚨 ']

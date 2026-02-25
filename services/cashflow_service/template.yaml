@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Rural Credit Advisor — Cash Flow Service
+  Seasonal cash-flow prediction, repayment capacity, and credit timing alignment.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    MemorySize: 256
+    Timeout: 30
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+        ENVIRONMENT: production
+
+Parameters:
+  DynamoDBTableName:
+    Type: String
+    Default: rural-credit-cashflow
+  CashFlowSNSTopicName:
+    Type: String
+    Default: rural-credit-cashflow-events
+  ProfileServiceUrl:
+    Type: String
+    Default: ""
+  LoanServiceUrl:
+    Type: String
+    Default: ""
+  WeatherApiKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+  MarketApiUrl:
+    Type: String
+    Default: ""
+
+Resources:
+  # -----------------------------------------------------------------------
+  # DynamoDB Table
+  # -----------------------------------------------------------------------
+  CashFlowTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DynamoDBTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
+  # -----------------------------------------------------------------------
+  # SNS Topic
+  # -----------------------------------------------------------------------
+  CashFlowEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref CashFlowSNSTopicName
+
+  # -----------------------------------------------------------------------
+  # Lambda Function
+  # -----------------------------------------------------------------------
+  CashFlowFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: rural-credit-cashflow
+      Handler: services.cashflow_service.app.main.handler
+      CodeUri: ../../
+      Layers:
+        - !Ref SharedLayer
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !Ref DynamoDBTableName
+          SNS_TOPIC_ARN: !Ref CashFlowEventsTopic
+          PROFILE_SERVICE_URL: !Ref ProfileServiceUrl
+          LOAN_SERVICE_URL: !Ref LoanServiceUrl
+          WEATHER_API_KEY: !Ref WeatherApiKey
+          MARKET_API_URL: !Ref MarketApiUrl
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CashFlowTable
+        - SNSPublishMessagePolicy:
+            TopicArn: !Ref CashFlowEventsTopic
+      Events:
+        ApiGateway:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+  # -----------------------------------------------------------------------
+  # Shared Lambda Layer (placeholder — built at root level)
+  # -----------------------------------------------------------------------
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: rural-credit-shared
+      ContentUri: ../../services/shared/
+      CompatibleRuntimes:
+        - python3.12
+
+  # -----------------------------------------------------------------------
+  # SQS Queue for event-driven triggers
+  # -----------------------------------------------------------------------
+  CashFlowEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: rural-credit-cashflow-events-queue
+
+  CashFlowEventQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref CashFlowEventsTopic
+      Endpoint: !GetAtt CashFlowEventQueue.Arn
+
+Outputs:
+  CashFlowApi:
+    Description: Cash Flow Service API endpoint
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  CashFlowFunctionArn:
+    Description: Cash Flow Lambda ARN
+    Value: !GetAtt CashFlowFunction.Arn
+  CashFlowEventsTopicArn:
+    Description: Cash Flow Events SNS Topic ARN
+    Value: !Ref CashFlowEventsTopic

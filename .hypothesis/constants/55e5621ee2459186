@@ -1,0 +1,4 @@
+# file: C:\Users\Chanpreet\Desktop\hack\services\security\app\domain\services.py
+# hypothesis_version: 6.151.9
+
+[365, 'Consent revoked: %s', 'SYSTEM', 'action', 'consent', 'consent.granted', 'consent.revoked', 'data_category', 'expired', 'profile_id', 'purpose', 'reason', 'renewed', 'retention_days', 'version']
