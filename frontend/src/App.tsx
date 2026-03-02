@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { AppShell } from "@/components/layout";
+import { LoginPage, ProtectedRoute } from "@/features/auth";
 import { DashboardPage } from "@/features/dashboard";
 import { ProfileListPage, ProfileDetailPage, CreateProfilePage } from "@/features/profiles";
 import { LoanListPage, LoanDetailPage, CreateLoanPage } from "@/features/loans";
@@ -12,7 +13,17 @@ import { SecurityPage } from "@/features/security";
 export function App() {
   return (
     <Routes>
-      <Route element={<AppShell />}>
+      {/* Public route — Login */}
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* Protected routes — require authentication */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      >
         {/* Dashboard */}
         <Route index element={<DashboardPage />} />
 

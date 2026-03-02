@@ -186,6 +186,55 @@ def _scenario_item_to_params(item: ScenarioItem) -> ScenarioParameters:
 # ---------------------------------------------------------------------------
 # Alert Routes
 # ---------------------------------------------------------------------------
+@router.get("/stats")
+async def get_alert_stats():
+    """Aggregate alert statistics for the dashboard."""
+    svc = get_early_warning_service()
+    repo = svc._repo
+    scan_kwargs = {
+        "FilterExpression": "begins_with(PK, :pk) AND SK = :sk",
+        "ExpressionAttributeValues": {":pk": "ALERT#", ":sk": "METADATA"},
+        "Limit": 500,
+    }
+    response = repo._table.scan(**scan_kwargs)
+    items = response.get("Items", [])
+
+    active_count = 0
+    severity_counts: dict[str, int] = {"INFO": 0, "WARNING": 0, "CRITICAL": 0}
+
+    # Sort by created_at descending for recent alerts
+    sorted_items = sorted(items, key=lambda x: x.get("created_at", ""), reverse=True)
+
+    for item in items:
+        status = item.get("status", "ACTIVE")
+        severity = item.get("severity", "INFO")
+        if status in ("ACTIVE", "ACKNOWLEDGED"):
+            active_count += 1
+        if severity in severity_counts:
+            severity_counts[severity] += 1
+
+    # Recent alerts (top 5)
+    recent = []
+    for item in sorted_items[:5]:
+        recent.append({
+            "alert_id": item.get("alert_id", ""),
+            "profile_id": item.get("profile_id", ""),
+            "alert_type": item.get("alert_type", ""),
+            "severity": item.get("severity", "INFO"),
+            "status": item.get("status", "ACTIVE"),
+            "title": item.get("title", ""),
+            "description": item.get("description", ""),
+            "created_at": item.get("created_at", ""),
+        })
+
+    return {
+        "total_alerts": len(items),
+        "active_alerts": active_count,
+        "severity_counts": severity_counts,
+        "recent_alerts": recent,
+    }
+
+
 @router.post("/monitor", response_model=AlertDTO, status_code=201)
 async def monitor_and_alert(req: MonitorRequest):
     """Run full monitoring pipeline and generate alert (Req 5.1–5.4)."""

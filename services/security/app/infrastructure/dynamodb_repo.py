@@ -15,6 +15,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
+from ..domain.auth_models import User, UserRole
 from ..domain.models import (
     AuditAction,
     AuditEntry,
@@ -316,4 +317,65 @@ class DynamoDBSecurityRepository:
             description=item.get("description", ""),
             is_active=item.get("is_active", True),
             created_at=_iso_to_dt(item["created_at"]),
+        )
+
+    # ==================================================================
+    # User Repository (Authentication)
+    # ==================================================================
+
+    async def save_user(self, user: User) -> None:
+        self._table.put_item(Item={
+            "PK": f"USER#{user.user_id}",
+            "SK": "METADATA",
+            "user_id": user.user_id,
+            "email": user.email,
+            "password_hash": user.password_hash,
+            "salt": user.salt,
+            "full_name": user.full_name,
+            "roles": json.dumps([r.value for r in user.roles]),
+            "is_active": user.is_active,
+            "created_at": _dt_to_iso(user.created_at),
+            "last_login_at": _dt_to_iso(user.last_login_at) if user.last_login_at else "",
+        })
+        # Also store by email for login lookups
+        self._table.put_item(Item={
+            "PK": f"USER_EMAIL#{user.email}",
+            "SK": "LOOKUP",
+            "user_id": user.user_id,
+        })
+
+    async def find_user_by_id(self, user_id: str) -> User | None:
+        resp = self._table.get_item(Key={
+            "PK": f"USER#{user_id}",
+            "SK": "METADATA",
+        })
+        item = resp.get("Item")
+        return self._item_to_user(item) if item else None
+
+    async def find_user_by_email(self, email: str) -> User | None:
+        email = email.lower().strip()
+        resp = self._table.get_item(Key={
+            "PK": f"USER_EMAIL#{email}",
+            "SK": "LOOKUP",
+        })
+        lookup = resp.get("Item")
+        if not lookup:
+            return None
+        return await self.find_user_by_id(lookup["user_id"])
+
+    async def update_user(self, user: User) -> None:
+        await self.save_user(user)
+
+    def _item_to_user(self, item: dict) -> User:
+        last_login = item.get("last_login_at", "")
+        return User(
+            user_id=item["user_id"],
+            email=item["email"],
+            password_hash=item["password_hash"],
+            salt=item["salt"],
+            full_name=item["full_name"],
+            roles=[UserRole(r) for r in json.loads(item.get("roles", "[]"))],
+            is_active=item.get("is_active", True),
+            created_at=_iso_to_dt(item["created_at"]),
+            last_login_at=_iso_to_dt(last_login) if last_login else None,
         )

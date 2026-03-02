@@ -1,5 +1,6 @@
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, LogOut } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/features/auth";
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "Dashboard",
@@ -14,8 +15,16 @@ const PAGE_TITLES: Record<string, string> = {
 
 export function Header() {
   const { pathname } = useLocation();
+  const { user, logout } = useAuth();
   const baseRoute = "/" + (pathname.split("/")[1] ?? "");
   const title = PAGE_TITLES[baseRoute] ?? "Rural Credit Advisor";
+
+  const initials = user?.full_name
+    ?.split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) ?? "?";
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white/80 px-6 backdrop-blur-sm">
@@ -38,9 +47,22 @@ export function Header() {
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
         </button>
 
-        {/* Avatar */}
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
-          A
+        {/* User info + logout */}
+        <div className="flex items-center gap-3 border-l border-gray-200 pl-4">
+          <div className="hidden sm:block text-right">
+            <p className="text-sm font-medium text-gray-900">{user?.full_name}</p>
+            <p className="text-[10px] text-gray-400">{user?.roles?.[0] ?? "User"}</p>
+          </div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
+            {initials}
+          </div>
+          <button
+            onClick={logout}
+            title="Sign out"
+            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </header>

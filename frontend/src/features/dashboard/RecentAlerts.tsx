@@ -1,50 +1,8 @@
-import { AlertCircle, AlertTriangle, Info } from "lucide-react";
+import { AlertCircle, AlertTriangle, Info, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, Badge } from "@/components/ui";
+import { dashboardApi, type RecentAlert } from "@/api/dashboard";
 import { cn } from "@/lib/utils";
-
-interface MockAlert {
-  id: string;
-  borrower: string;
-  type: string;
-  severity: "INFO" | "WARNING" | "CRITICAL";
-  message: string;
-  time: string;
-}
-
-const MOCK_ALERTS: MockAlert[] = [
-  {
-    id: "1",
-    borrower: "Ramesh Kumar",
-    type: "REPAYMENT_STRESS",
-    severity: "CRITICAL",
-    message: "Missed 2 consecutive repayments on crop loan",
-    time: "2 hours ago",
-  },
-  {
-    id: "2",
-    borrower: "Sunita Devi",
-    type: "INCOME_DEVIATION",
-    severity: "WARNING",
-    message: "Income 40% below seasonal average",
-    time: "5 hours ago",
-  },
-  {
-    id: "3",
-    borrower: "Mohan Singh",
-    type: "WEATHER_RISK",
-    severity: "WARNING",
-    message: "Drought alert in district — crop yield at risk",
-    time: "1 day ago",
-  },
-  {
-    id: "4",
-    borrower: "Lakshmi Bai",
-    type: "OVER_INDEBTEDNESS",
-    severity: "INFO",
-    message: "Debt-to-income ratio approaching threshold",
-    time: "2 days ago",
-  },
-];
 
 const iconMap = {
   CRITICAL: <AlertCircle className="h-5 w-5 text-red-500" />,
@@ -58,7 +16,26 @@ const badgeColors = {
   INFO: "bg-blue-100 text-blue-700",
 };
 
+function timeAgo(dateStr: string): string {
+  if (!dateStr) return "";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export function RecentAlerts() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard", "alerts"],
+    queryFn: dashboardApi.alertStats,
+    staleTime: 60_000,
+  });
+
+  const alerts: RecentAlert[] = data?.recent_alerts ?? [];
+
   return (
     <Card>
       <CardHeader className="mb-4">
@@ -68,31 +45,43 @@ export function RecentAlerts() {
         </a>
       </CardHeader>
 
-      <div className="divide-y divide-gray-100">
-        {MOCK_ALERTS.map((alert) => (
-          <div
-            key={alert.id}
-            className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
-          >
-            {iconMap[alert.severity]}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {alert.borrower}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+        </div>
+      ) : alerts.length === 0 ? (
+        <div className="py-8 text-center text-sm text-gray-400">
+          No alerts yet. Create profiles and run monitoring to generate alerts.
+        </div>
+      ) : (
+        <div className="divide-y divide-gray-100">
+          {alerts.map((alert) => (
+            <div
+              key={alert.alert_id}
+              className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
+            >
+              {iconMap[alert.severity] ?? iconMap.INFO}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {alert.title || alert.alert_type}
+                  </p>
+                  <Badge
+                    label={alert.severity}
+                    colorClass={cn(badgeColors[alert.severity] ?? badgeColors.INFO)}
+                  />
+                </div>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  {alert.description || `Alert for profile ${alert.profile_id.slice(0, 8)}…`}
                 </p>
-                <Badge
-                  label={alert.severity}
-                  colorClass={cn(badgeColors[alert.severity])}
-                />
               </div>
-              <p className="mt-0.5 text-sm text-gray-500">{alert.message}</p>
+              <span className="flex-shrink-0 text-xs text-gray-400">
+                {timeAgo(alert.created_at)}
+              </span>
             </div>
-            <span className="flex-shrink-0 text-xs text-gray-400">
-              {alert.time}
-            </span>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
