@@ -84,6 +84,66 @@ def _loan_to_summary(loan: Loan) -> LoanSummaryDTO:
     )
 
 
+@router.get("/stats")
+async def get_loan_stats():
+    """Aggregate loan statistics for the dashboard."""
+    svc = get_loan_service()
+    # Scan all loans via repo directly
+    repo = svc._repo
+    scan_kwargs = {
+        "FilterExpression": "begins_with(PK, :pk) AND SK = :sk",
+        "ExpressionAttributeValues": {":pk": "LOAN#", ":sk": "METADATA"},
+        "Limit": 500,
+    }
+    response = repo._table.scan(**scan_kwargs)
+    items = response.get("Items", [])
+
+    active_count = 0
+    total_outstanding = 0.0
+    total_disbursed = 0.0
+    total_repaid_sum = 0.0
+    default_count = 0
+    repayment_rates: list[float] = []
+
+    for item in items:
+        status = item.get("status", "ACTIVE")
+        principal = float(item.get("terms", {}).get("principal", 0))
+        outstanding = float(item.get("outstanding_balance", 0))
+        total_repaid = float(item.get("total_repaid", 0))
+
+        total_disbursed += principal
+        total_outstanding += outstanding
+        total_repaid_sum += total_repaid
+
+        if status == "ACTIVE":
+            active_count += 1
+        elif status == "DEFAULTED":
+            default_count += 1
+
+        if principal > 0:
+            repayment_rates.append(total_repaid / principal)
+
+    total_loans = len(items)
+    avg_repayment_rate = (
+        sum(repayment_rates) / len(repayment_rates)
+        if repayment_rates
+        else 0.0
+    )
+    default_rate = (
+        default_count / total_loans * 100 if total_loans > 0 else 0.0
+    )
+
+    return {
+        "active_loans": active_count,
+        "total_loans": total_loans,
+        "total_outstanding": total_outstanding,
+        "total_disbursed": total_disbursed,
+        "avg_repayment_rate": round(avg_repayment_rate * 100, 1),
+        "default_count": default_count,
+        "default_rate": round(default_rate, 1),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------

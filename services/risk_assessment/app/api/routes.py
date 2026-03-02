@@ -70,6 +70,47 @@ def _assessment_to_dto(a: RiskAssessment) -> RiskAssessmentDTO:
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+@router.get("/stats")
+async def get_risk_stats():
+    """Aggregate risk statistics for the dashboard."""
+    svc = get_risk_service()
+    repo = svc._repo
+    scan_kwargs = {
+        "FilterExpression": "begins_with(PK, :pk) AND SK = :sk",
+        "ExpressionAttributeValues": {":pk": "RISK#", ":sk": "METADATA"},
+        "Limit": 500,
+    }
+    response = repo._table.scan(**scan_kwargs)
+    items = response.get("Items", [])
+
+    scores: list[float] = []
+    distribution: dict[str, int] = {"LOW": 0, "MEDIUM": 0, "HIGH": 0, "VERY_HIGH": 0}
+
+    # Deduplicate: keep only the latest assessment per profile
+    latest_by_profile: dict[str, dict] = {}
+    for item in items:
+        pid = item.get("profile_id", "")
+        created = item.get("created_at", "")
+        if pid not in latest_by_profile or created > latest_by_profile[pid].get("created_at", ""):
+            latest_by_profile[pid] = item
+
+    for item in latest_by_profile.values():
+        score = float(item.get("risk_score", 0))
+        category = item.get("risk_category", "MEDIUM")
+        scores.append(score)
+        if category in distribution:
+            distribution[category] += 1
+
+    avg_score = sum(scores) / len(scores) if scores else 0.0
+    total = len(scores)
+
+    return {
+        "avg_risk_score": round(avg_score, 1),
+        "total_assessments": total,
+        "distribution": distribution,
+    }
+
+
 @router.post("/assess", response_model=RiskAssessmentDTO, status_code=201)
 async def assess_risk(req: AssessRiskRequest):
     """Run a full risk assessment for a borrower (cross-service data)."""

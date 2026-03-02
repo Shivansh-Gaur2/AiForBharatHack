@@ -33,11 +33,16 @@ Desktop.ini
 
 # Testing
 .pytest_cache/
+.hypothesis/
 htmlcov/
 .coverage
 .coverage.*
 coverage.xml
 *.cover
+results/
+test_output.txt
+test_results*.txt
+pytest_output.txt
 
 # MyPy / type checking
 .mypy_cache/
@@ -58,3 +63,9 @@ samconfig.toml
 
 # Byte-compiled
 *.pyc
+
+# ─── Frontend ────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo

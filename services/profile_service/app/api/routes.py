@@ -256,6 +256,36 @@ def _to_profile_summary(profile) -> ProfileSummaryDTO:
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+@router.get("/stats")
+def get_profile_stats(
+    svc: ProfileService = Depends(get_profile_service),
+):
+    """Aggregate profile statistics for the dashboard."""
+    from datetime import datetime, timedelta, timezone
+
+    profiles, _ = svc.list_profiles(limit=500)
+    now = datetime.now(timezone.utc)
+    thirty_days_ago = now - timedelta(days=30)
+
+    total = len(profiles)
+    recent = sum(
+        1 for p in profiles
+        if hasattr(p, "created_at") and p.created_at and p.created_at >= thirty_days_ago
+    )
+
+    # Occupation breakdown
+    occupations: dict[str, int] = {}
+    for p in profiles:
+        occ = p.livelihood_info.primary_occupation.value
+        occupations[occ] = occupations.get(occ, 0) + 1
+
+    return {
+        "total_profiles": total,
+        "recent_count": recent,
+        "occupation_breakdown": occupations,
+    }
+
+
 @router.post("", response_model=ProfileDetailDTO, status_code=201)
 def create_profile(
     request: CreateProfileRequest,

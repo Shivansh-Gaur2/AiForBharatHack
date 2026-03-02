@@ -32,4 +32,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["services/profile_service/tests", "services/loan_tracker/tests", "services/risk_assessment/tests", "services/cashflow_service/tests", "services/early_warning/tests", "services/guidance/tests", "services/security/tests"]
 pythonpath = ["."]
-addopts = "-ra -q"
+addopts = "-ra -q --ignore=tests/e2e -m 'not e2e'"
+markers = [
+    "e2e: end-to-end tests requiring running services (deselected by default)",
+]

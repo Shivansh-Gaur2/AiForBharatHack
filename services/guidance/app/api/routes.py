@@ -132,6 +132,28 @@ def _guidance_to_summary(g: CreditGuidance) -> GuidanceSummaryDTO:
 # ---------------------------------------------------------------------------
 
 
+@router.get("/stats")
+async def get_guidance_stats():
+    """Aggregate guidance statistics for the dashboard."""
+    svc = get_guidance_service()
+    repo = svc._repo
+    scan_kwargs = {
+        "FilterExpression": "begins_with(PK, :pk) AND SK = :sk",
+        "ExpressionAttributeValues": {":pk": "GUIDANCE#", ":sk": "METADATA"},
+        "Limit": 500,
+    }
+    response = repo._table.scan(**scan_kwargs)
+    items = response.get("Items", [])
+
+    total = len(items)
+    active = sum(1 for i in items if i.get("status") == "ACTIVE")
+
+    return {
+        "total_issued": total,
+        "active_count": active,
+    }
+
+
 @router.post("/generate", response_model=GuidanceDTO, status_code=201)
 async def generate_guidance(req: GuidanceRequest):
     """Generate personalized credit guidance (Req 7.1) — cross-service."""
