@@ -9,6 +9,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
+pytestmark = pytest.mark.e2e  # requires running service — skipped by default
+
 BASE = "http://localhost:8084/api/v1/early-warning"
 
 

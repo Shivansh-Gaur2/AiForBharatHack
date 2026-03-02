@@ -81,7 +81,7 @@ class AsyncInMemoryEventPublisher:
 
 
 # ---------------------------------------------------------------------------
-# SNS Publisher (production adapter — implemented in infrastructure/)
+# SNS Publishers (production adapters)
 # ---------------------------------------------------------------------------
 class SNSEventPublisher:
     """Publishes domain events to an SNS topic."""
@@ -108,3 +108,61 @@ class SNSEventPublisher:
         except Exception:
             logger.exception("Failed to publish event %s", event.event_type)
             raise
+
+
+class AsyncSNSEventPublisher:
+    """Async adapter for publishing domain events to SNS.
+
+    Wraps the synchronous boto3 SNS ``publish`` call in
+    ``asyncio.to_thread`` so FastAPI route handlers (which are async)
+    do not block the event loop.
+
+    Fire-and-forget semantics: a publish failure is logged but does
+    **not** propagate to the caller, keeping domain operations
+    resilient to messaging outages.
+    """
+
+    def __init__(self, sns_client: Any, topic_arn: str) -> None:
+        self._sns = sns_client
+        self._topic_arn = topic_arn
+
+    async def publish(self, event: DomainEvent) -> None:  # noqa: D401
+        import asyncio
+
+        try:
+            await asyncio.to_thread(self._sync_publish, event)
+        except Exception:
+            # Log-and-swallow — domain work already succeeded;
+            # downstream consumers will eventually catch up via a
+            # DLQ replay or polling reconciliation.
+            logger.exception(
+                "Failed to publish event %s (aggregate=%s) to %s — "
+                "message will be retried via DLQ reconciliation",
+                event.event_type,
+                event.aggregate_id,
+                self._topic_arn,
+            )
+
+    # -- private helpers ----------------------------------------------------
+
+    def _sync_publish(self, event: DomainEvent) -> None:
+        self._sns.publish(
+            TopicArn=self._topic_arn,
+            Message=event.to_json(),
+            MessageAttributes={
+                "event_type": {
+                    "DataType": "String",
+                    "StringValue": event.event_type,
+                },
+                "aggregate_id": {
+                    "DataType": "String",
+                    "StringValue": event.aggregate_id,
+                },
+            },
+        )
+        logger.info(
+            "Published event %s (aggregate=%s) to %s",
+            event.event_type,
+            event.aggregate_id,
+            self._topic_arn,
+        )

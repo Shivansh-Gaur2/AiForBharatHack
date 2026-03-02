@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
-from services.shared.events import AsyncEventPublisher, AsyncInMemoryEventPublisher
+import boto3
+
+from services.shared.events import (
+    AsyncEventPublisher,
+    AsyncInMemoryEventPublisher,
+    AsyncSNSEventPublisher,
+)
 
 
 def create_loan_event_publisher(
     sns_topic_arn: str | None = None,
     region: str = "ap-south-1",
 ) -> AsyncEventPublisher:
+    """Return an async SNS publisher when a topic ARN is provided.
+
+    Falls back to :class:`AsyncInMemoryEventPublisher` for local
+    development where no SNS topic is configured.
+    """
     if not sns_topic_arn:
         return AsyncInMemoryEventPublisher()
-    # TODO: Create an async SNS publisher for production
-    return AsyncInMemoryEventPublisher()
+    sns_client = boto3.client("sns", region_name=region)
+    return AsyncSNSEventPublisher(sns_client=sns_client, topic_arn=sns_topic_arn)

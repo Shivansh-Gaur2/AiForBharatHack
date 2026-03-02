@@ -12,6 +12,11 @@ from fastapi import FastAPI
 from mangum import Mangum
 
 from services.shared.events import AsyncInMemoryEventPublisher
+from services.shared.observability import configure_logging
+from services.shared.observability.middleware import (
+    ErrorHandlingMiddleware,
+    RequestTracingMiddleware,
+)
 
 from .api.routes import router, set_risk_service
 from .config import Settings
@@ -24,7 +29,11 @@ from .infrastructure.dynamodb_repo import DynamoDBRiskRepository
 # ---------------------------------------------------------------------------
 settings = Settings.from_env()
 
-logging.basicConfig(level=getattr(logging, settings.log_level))
+configure_logging(
+    service_name="risk-assessment",
+    level=settings.log_level,
+    json_output=settings.environment != "local",
+)
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -78,6 +87,10 @@ risk_service = RiskAssessmentService(
     events=event_publisher,
 )
 set_risk_service(risk_service)
+
+# Middleware (order matters: outermost first)
+app.add_middleware(RequestTracingMiddleware)
+app.add_middleware(ErrorHandlingMiddleware, service_name="risk-assessment")
 
 app.include_router(router)
 

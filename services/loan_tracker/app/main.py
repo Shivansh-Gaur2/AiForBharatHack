@@ -12,6 +12,11 @@ from fastapi import FastAPI
 from mangum import Mangum
 
 from services.shared.events import AsyncInMemoryEventPublisher
+from services.shared.observability import configure_logging
+from services.shared.observability.middleware import (
+    ErrorHandlingMiddleware,
+    RequestTracingMiddleware,
+)
 
 from .api.routes import router, set_loan_service
 from .config import Settings
@@ -24,7 +29,11 @@ from .infrastructure.sqs_events import create_loan_event_publisher
 # ---------------------------------------------------------------------------
 settings = Settings.from_env()
 
-logging.basicConfig(level=getattr(logging, settings.log_level))
+configure_logging(
+    service_name="loan-tracker",
+    level=settings.log_level,
+    json_output=settings.environment != "local",
+)
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -62,6 +71,10 @@ else:
 
 loan_service = LoanTrackerService(repo=repo, events=event_publisher)
 set_loan_service(loan_service)
+
+# Middleware (order matters: outermost first)
+app.add_middleware(RequestTracingMiddleware)
+app.add_middleware(ErrorHandlingMiddleware, service_name="loan-tracker")
 
 app.include_router(router)
 
