@@ -78,20 +78,23 @@ repo = DynamoDBCashFlowRepository(ddb, settings.dynamodb_table_name)
 # Weather provider — use HTTP adapter when API key is configured
 if settings.weather_api_key:
     from .infrastructure.external_data import HttpWeatherDataProvider
-    weather_provider = HttpWeatherDataProvider(api_key=settings.weather_api_key)
+    weather_provider = HttpWeatherDataProvider(
+        api_key=settings.weather_api_key,
+        verify_ssl=not settings.skip_tls_verify,
+    )
     logger.info("Using HttpWeatherDataProvider (OpenWeather)")
 else:
     weather_provider = StubWeatherDataProvider()
     logger.info("Using StubWeatherDataProvider (no WEATHER_API_KEY)")
 
-# Market provider — use HTTP adapter when URL is configured
-if settings.market_api_url:
+# Market provider — use HTTP adapter when API key is configured
+if settings.market_api_key:
     from .infrastructure.external_data import HttpMarketDataProvider
-    market_provider = HttpMarketDataProvider(base_url=settings.market_api_url)
-    logger.info("Using HttpMarketDataProvider → %s", settings.market_api_url)
+    market_provider = HttpMarketDataProvider(api_key=settings.market_api_key)
+    logger.info("Using HttpMarketDataProvider (data.gov.in Agmarknet)")
 else:
     market_provider = StubMarketDataProvider()
-    logger.info("Using StubMarketDataProvider (no MARKET_API_URL)")
+    logger.info("Using StubMarketDataProvider (no MARKET_API_KEY)")
 
 # Profile provider — use HTTP adapter when URL is configured
 if settings.profile_service_url:
@@ -138,7 +141,13 @@ configure_auth()
 # CORS — allow frontend dev server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:3003",
+        "http://localhost:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

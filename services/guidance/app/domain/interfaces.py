@@ -97,3 +97,16 @@ class AlertDataProvider(Protocol):
     async def get_active_alerts(self, profile_id: ProfileId) -> list[dict]:
         """Returns active alerts for the profile."""
         ...
+
+
+class AIExplanationProvider(Protocol):
+    """Generates AI-enriched natural-language summaries via an LLM.
+
+    The service calls this *after* computing the template-based guidance so
+    that the AI summary is purely additive — the system still works if this
+    provider is absent or unavailable.
+    """
+
+    async def generate_summary(self, context: dict) -> str | None:
+        """Return an AI-generated summary string, or None on failure."""
+        ...

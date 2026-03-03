@@ -15,7 +15,8 @@ class Settings:
     profile_service_url: str | None = None   # for cross-service HTTP calls
     loan_service_url: str | None = None      # for cross-service HTTP calls
     weather_api_key: str | None = None       # OpenWeather API key
-    market_api_url: str | None = None        # agmarknet / market feed URL
+    market_api_key: str | None = None        # data.gov.in Agmarknet API key
+    skip_tls_verify: bool = False            # set True in local dev with proxy/cert issues
     skip_auth: bool = False
     environment: str = "local"
     log_level: str = "INFO"
@@ -30,7 +31,8 @@ class Settings:
             profile_service_url=os.getenv("PROFILE_SERVICE_URL"),
             loan_service_url=os.getenv("LOAN_SERVICE_URL"),
             weather_api_key=os.getenv("WEATHER_API_KEY"),
-            market_api_url=os.getenv("MARKET_API_URL"),
+            market_api_key=os.getenv("MARKET_API_KEY"),
+            skip_tls_verify=os.getenv("SKIP_TLS_VERIFY", "false").lower() == "true",
             skip_auth=os.getenv("SKIP_AUTH", "false").lower() == "true",
             environment=os.getenv("ENVIRONMENT", "local"),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
