@@ -29,6 +29,7 @@ from .api.routes import router, set_guidance_service
 from .config import Settings
 from .domain.services import GuidanceService
 from .infrastructure.data_providers import (
+    StubAIProvider,
     StubAlertDataProvider,
     StubCashFlowDataProvider,
     StubLoanDataProvider,
@@ -121,6 +122,21 @@ else:
     alert_provider = StubAlertDataProvider()
     logger.info("Using StubAlertDataProvider (no EARLY_WARNING_SERVICE_URL)")
 
+# AI explanation provider (Amazon Bedrock) — optional, enhances guidance summaries
+if settings.bedrock_model_id:
+    from .infrastructure.bedrock_ai import BedrockAIProvider
+    ai_provider = BedrockAIProvider(
+        model_id=settings.bedrock_model_id,
+        region=settings.bedrock_region,
+    )
+    logger.info(
+        "Using BedrockAIProvider (model=%s, region=%s)",
+        settings.bedrock_model_id, settings.bedrock_region,
+    )
+else:
+    ai_provider = StubAIProvider()
+    logger.info("Using StubAIProvider (no BEDROCK_MODEL_ID)")
+
 # Event publisher
 if settings.sns_topic_arn:
     event_publisher = create_guidance_event_publisher(
@@ -140,6 +156,7 @@ guidance_service = GuidanceService(
     profile_provider=profile_provider,
     alert_provider=alert_provider,
     events=event_publisher,
+    ai_provider=ai_provider,
 )
 set_guidance_service(guidance_service)
 
@@ -149,7 +166,13 @@ configure_auth()
 # CORS — allow frontend dev server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:3003",
+        "http://localhost:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

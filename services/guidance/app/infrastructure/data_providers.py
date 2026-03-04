@@ -83,3 +83,10 @@ class StubAlertDataProvider:
 
     async def get_active_alerts(self, profile_id: ProfileId) -> list[dict]:
         return []
+
+
+class StubAIProvider:
+    """No-op AI provider used in local dev / tests."""
+
+    async def generate_summary(self, context: dict) -> str | None:
+        return None

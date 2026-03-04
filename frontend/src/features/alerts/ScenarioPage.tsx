@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Beaker, AlertTriangle } from "lucide-react";
+import { Beaker, AlertTriangle, TrendingDown } from "lucide-react";
 import { alertApi } from "@/api";
 import {
   Button,
@@ -45,13 +45,15 @@ export function ScenarioPage() {
 
   function handleRun(e: React.FormEvent) {
     e.preventDefault();
+    const name = `${formatEnum(scenarioType)} — ${shockPct}% shock, ${duration}mth`;
     mutation.mutate({
       profile_id: profileId,
-      scenario: {
-        scenario_type: scenarioType,
-        income_shock_percentage: Number(shockPct),
-        duration_months: Number(duration),
-      },
+      scenario_type: scenarioType,
+      name,
+      income_reduction_pct: scenarioType === ScenarioType.INCOME_SHOCK || scenarioType === ScenarioType.COMBINED ? Number(shockPct) : 0,
+      weather_adjustment: scenarioType === ScenarioType.WEATHER_IMPACT ? 1 - Number(shockPct) / 100 : 1.0,
+      market_price_change_pct: scenarioType === ScenarioType.MARKET_VOLATILITY || scenarioType === ScenarioType.COMBINED ? -Number(shockPct) : 0,
+      duration_months: Number(duration),
     });
   }
 
@@ -126,27 +128,29 @@ export function ScenarioPage() {
               icon={<AlertTriangle className="h-5 w-5" />}
             />
             <StatCard
-              label="Baseline Capacity"
-              value={formatCurrency(
-                result.capacity_impact.baseline_capacity,
-              )}
+              label="Baseline EMI Capacity"
+              value={formatCurrency(result.capacity_impact.original_recommended_emi)}
             />
             <StatCard
-              label="Stressed Capacity"
-              value={formatCurrency(
-                result.capacity_impact.stressed_capacity,
-              )}
+              label="Stressed EMI Capacity"
+              value={formatCurrency(result.capacity_impact.stressed_recommended_emi)}
             />
             <StatCard
-              label="Capacity Reduction"
-              value={formatPercent(
-                result.capacity_impact.capacity_reduction_pct / 100,
-              )}
+              label="EMI Capacity Loss"
+              value={`${result.capacity_impact.emi_reduction_pct.toFixed(1)}%`}
+              icon={<TrendingDown className="h-5 w-5" />}
             />
           </div>
 
+          {/* Additional stats row */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <StatCard label="Months in Deficit" value={String(result.months_in_deficit)} />
+            <StatCard label="Total Income Loss" value={formatCurrency(result.total_income_loss)} />
+            <StatCard label="Coverage Ratio (Stressed)" value={result.capacity_impact.stressed_dscr.toFixed(2) + "x"} />
+          </div>
+
           {/* Can service debt warning */}
-          {!result.capacity_impact.can_service_existing_debt && (
+          {!result.capacity_impact.can_still_repay && (
             <AlertBanner
               variant="error"
               title="Cannot Service Existing Debt"
@@ -162,9 +166,9 @@ export function ScenarioPage() {
                 <LineChart
                   data={result.projections.map((p) => ({
                     name: `${getMonthName(p.month)} ${String(p.year).slice(2)}`,
-                    "Baseline Income": p.baseline_income,
-                    "Stressed Income": p.stressed_income,
-                    "Net Impact": p.net_impact,
+                    "Baseline Income": p.baseline_inflow,
+                    "Stressed Income": p.stressed_inflow,
+                    "Net Impact": p.stressed_net,
                   }))}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
@@ -220,13 +224,18 @@ export function ScenarioPage() {
                     className="flex items-start gap-3 rounded-lg bg-gray-50 p-4"
                   >
                     <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
-                      {rec.priority}
+                      {i + 1}
                     </span>
                     <div>
-                      <p className="font-medium text-gray-900">{rec.action}</p>
+                      <p className="font-medium text-gray-900">{rec.recommendation}</p>
                       <p className="mt-0.5 text-sm text-gray-500">
                         {rec.rationale}
                       </p>
+                      {rec.confidence && (
+                        <span className="mt-1 inline-block text-xs text-brand-600 font-medium">
+                          Confidence: {rec.confidence}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}

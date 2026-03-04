@@ -81,10 +81,12 @@ class HttpWeatherDataProvider:
         api_key: str | None = None,
         base_url: str = "https://api.openweathermap.org/data/2.5",
         timeout: float = 10.0,
+        verify_ssl: bool = True,
     ) -> None:
         self._api_key = api_key
         self._base_url = base_url
         self._timeout = timeout
+        self._verify_ssl = verify_ssl
         self._circuit = CircuitBreaker(name="weather-api", failure_threshold=3, recovery_timeout_seconds=120)
 
     async def get_weather_adjustment(self, district: str, season: str) -> float:
@@ -101,7 +103,7 @@ class HttpWeatherDataProvider:
             return 1.0
 
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
+            async with httpx.AsyncClient(timeout=self._timeout, verify=self._verify_ssl) as client:
                 response = await client.get(
                     f"{self._base_url}/weather",
                     params={"q": f"{district},IN", "appid": self._api_key, "units": "metric"},
@@ -153,31 +155,55 @@ class HttpWeatherDataProvider:
 
 
 # ---------------------------------------------------------------------------
-# Market Data Adapter (agmarknet / stub)
+# Market Data Adapter — data.gov.in Agmarknet (Indian mandi prices)
 # ---------------------------------------------------------------------------
-class HttpMarketDataProvider:
-    """Fetches crop market price data.
+# Agmarknet resource ID on data.gov.in:
+_AGMARKNET_RESOURCE = "9ef84268-d588-465a-a308-a864a43d0070"
+_AGMARKNET_BASE = "https://api.data.gov.in/resource"
 
-    In practice, this would call agmarknet API or a commodity price feed.
-    For now, uses a configurable endpoint with circuit breaker protection.
+# Approximate long-run MSP / average modal prices (INR/quintal) used as
+# baseline when the live API returns no records for a commodity.
+_BASELINE_MODAL_PRICES: dict[str, float] = {
+    "rice": 2183,
+    "wheat": 2275,
+    "maize": 2090,
+    "soybean": 4600,
+    "cotton": 6620,
+    "sugarcane": 315,
+    "groundnut": 6377,
+    "mustard": 5650,
+    "tur": 7550,
+    "moong": 8682,
+    "urad": 7400,
+}
+
+
+class HttpMarketDataProvider:
+    """Fetches Indian crop market prices from data.gov.in Agmarknet.
+
+    Requires a free API key from https://data.gov.in — register there and
+    find your key under "My Account → API Key".
+
+    Falls back to 1.0 (neutral) when API is unavailable or returns no data.
     """
 
     def __init__(
         self,
-        base_url: str | None = None,
+        api_key: str | None = None,
         timeout: float = 10.0,
     ) -> None:
-        self._base_url = base_url
+        self._api_key = api_key
         self._timeout = timeout
         self._circuit = CircuitBreaker(name="market-api", failure_threshold=3, recovery_timeout_seconds=120)
 
     async def get_market_adjustment(self, crop: str, district: str) -> float:
-        """Return a market-price adjustment factor.
+        """Return a market-price adjustment factor relative to MSP baseline.
 
-        Falls back to 1.0 (neutral) if the API is unavailable.
+        Queries data.gov.in Agmarknet for the latest modal mandi price for
+        the given commodity in the given district.  Falls back to 1.0.
         """
-        if not self._base_url:
-            logger.debug("No market API configured; returning neutral adjustment")
+        if not self._api_key:
+            logger.debug("No MARKET_API_KEY configured; returning neutral adjustment")
             return 1.0
 
         if not self._circuit.is_call_permitted():
@@ -187,26 +213,60 @@ class HttpMarketDataProvider:
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 response = await client.get(
-                    f"{self._base_url}/prices",
-                    params={"crop": crop, "district": district},
+                    f"{_AGMARKNET_BASE}/{_AGMARKNET_RESOURCE}",
+                    params={
+                        "api-key": self._api_key,
+                        "format": "json",
+                        "limit": "5",
+                        "filters[commodity]": crop.lower(),
+                        "filters[state]": "Gujarat",  # default state; real use passes region
+                    },
                 )
                 response.raise_for_status()
                 data = response.json()
 
             self._circuit.record_success()
-
-            # Price relative to historical average
-            current_price = data.get("current_price", 0)
-            avg_price = data.get("average_price", 0)
-            if avg_price > 0:
-                ratio = current_price / avg_price
-                return max(0.5, min(1.5, round(ratio, 2)))
-            return 1.0
+            return self._compute_adjustment(data, crop)
 
         except (httpx.HTTPError, KeyError, ValueError) as exc:
             self._circuit.record_failure()
-            logger.warning("Market API call failed for %s/%s: %s", crop, district, exc)
+            logger.warning("Agmarknet API call failed for %s/%s: %s", crop, district, exc)
             return 1.0
+
+    def _compute_adjustment(self, data: dict[str, Any], crop: str) -> float:
+        """Derive price adjustment from data.gov.in response."""
+        records: list[dict] = data.get("records", [])
+        if not records:
+            return 1.0
+
+        # Parse modal prices and average them
+        modal_prices: list[float] = []
+        for rec in records:
+            try:
+                # API returns lowercase field names: modal_price
+                price_val = rec.get("modal_price") or rec.get("Modal_Price") or 0
+                modal_prices.append(float(price_val))
+            except (TypeError, ValueError):
+                continue
+
+        if not modal_prices:
+            return 1.0
+
+        current_price = sum(modal_prices) / len(modal_prices)
+        crop_key = crop.lower()
+        baseline = _BASELINE_MODAL_PRICES.get(crop_key, 0)
+
+        if baseline <= 0:
+            logger.debug("No baseline price for %s; returning neutral", crop)
+            return 1.0
+
+        ratio = current_price / baseline
+        adjustment = max(0.5, min(1.5, round(ratio, 2)))
+        logger.info(
+            "Market adjustment for %s: %.2f (current=%.0f, baseline=%.0f)",
+            crop, adjustment, current_price, baseline,
+        )
+        return adjustment
 
 
 # ---------------------------------------------------------------------------

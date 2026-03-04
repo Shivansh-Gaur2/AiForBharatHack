@@ -55,7 +55,10 @@ export const alertApi = {
     httpClient
       .post<ComparisonResult>(`${BASE}/scenarios/compare`, {
         profile_id: profileId,
-        scenarios,
+        scenarios: scenarios.map((s) => ({
+          ...s,
+          name: s.name ?? `${s.scenario_type} scenario`,
+        })),
       })
       .then((r) => r.data),
 

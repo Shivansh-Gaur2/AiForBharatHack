@@ -6,12 +6,14 @@ domain functions for guidance generation.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 
 from services.shared.events import AsyncEventPublisher, DomainEvent
 from services.shared.models import GuidanceId, ProfileId
 
 from .interfaces import (
+    AIExplanationProvider,
     AlertDataProvider,
     CashFlowDataProvider,
     GuidanceRepository,
@@ -55,6 +57,7 @@ class GuidanceService:
         profile_provider: ProfileDataProvider,
         alert_provider: AlertDataProvider,
         events: AsyncEventPublisher,
+        ai_provider: AIExplanationProvider | None = None,
     ) -> None:
         self._repo = repo
         self._risk = risk_provider
@@ -63,6 +66,7 @@ class GuidanceService:
         self._profile = profile_provider
         self._alert = alert_provider
         self._events = events
+        self._ai = ai_provider
 
     # ------------------------------------------------------------------
     # Command: Generate Full Credit Guidance (cross-service)
@@ -104,6 +108,8 @@ class GuidanceService:
             tenure_months=tenure_months,
             interest_rate_annual=interest_rate_annual,
         )
+
+        guidance = await self._enrich_with_ai(guidance)
 
         await self._repo.save_guidance(guidance)
         await self._events.publish(DomainEvent(
@@ -155,6 +161,8 @@ class GuidanceService:
             tenure_months=tenure_months,
             interest_rate_annual=interest_rate_annual,
         )
+
+        guidance = await self._enrich_with_ai(guidance)
 
         await self._repo.save_guidance(guidance)
         await self._events.publish(DomainEvent(
@@ -237,6 +245,37 @@ class GuidanceService:
             raise ValueError(f"Guidance {guidance_id} not found")
         guidance.expire()
         await self._repo.save_guidance(guidance)
+        return guidance
+
+    # ------------------------------------------------------------------
+    # Internal: AI enhancement
+    # ------------------------------------------------------------------
+
+    async def _enrich_with_ai(self, guidance: CreditGuidance) -> CreditGuidance:
+        """Optionally replace the guidance summary with an AI-generated one."""
+        if self._ai is None:
+            return guidance
+        try:
+            context = {
+                "purpose": guidance.loan_purpose.value.replace("_", " ").lower(),
+                "min_amount": guidance.recommended_amount.min_amount,
+                "max_amount": guidance.recommended_amount.max_amount,
+                "timing": f"{guidance.optimal_timing.start_month}/{guidance.optimal_timing.start_year}",
+                "risk": guidance.risk_summary.risk_category,
+                "score": guidance.risk_summary.risk_score,
+                "dti": guidance.risk_summary.dti_ratio,
+                "capacity": guidance.risk_summary.repayment_capacity_pct,
+                "confidence": guidance.explanation.confidence,
+            }
+            ai_summary = await self._ai.generate_summary(context)
+            if ai_summary:
+                new_explanation = dataclasses.replace(
+                    guidance.explanation, summary=ai_summary
+                )
+                guidance.explanation = new_explanation  # type: ignore[misc]
+                logger.debug("AI summary applied to guidance %s", guidance.guidance_id)
+        except Exception as exc:
+            logger.warning("AI enrichment failed, using template summary: %s", exc)
         return guidance
 
     # ------------------------------------------------------------------
