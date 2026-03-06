@@ -300,7 +300,7 @@ function GuidanceDetail({ guidance }: { guidance: CreditGuidance }) {
             </h3>
             <p className="text-sm text-gray-500">
               Generated {formatDate(guidance.created_at)} · Valid until{" "}
-              {formatDate(guidance.valid_until)}
+              {formatDate(guidance.expires_at ?? "")}
             </p>
           </div>
           <Badge
@@ -336,8 +336,8 @@ function GuidanceDetail({ guidance }: { guidance: CreditGuidance }) {
         {guidance.suggested_terms && (
           <StatCard
             label="Recommended EMI"
-            value={formatCurrency(guidance.suggested_terms.recommended_emi)}
-            subtitle={`${guidance.suggested_terms.recommended_tenure_months} months`}
+            value={formatCurrency(guidance.suggested_terms.emi_amount)}
+            subtitle={`${guidance.suggested_terms.tenure_months} months`}
             icon={<CalendarCheck className="h-5 w-5" />}
           />
         )}
@@ -385,25 +385,25 @@ function GuidanceDetail({ guidance }: { guidance: CreditGuidance }) {
             <div>
               <p className="text-xs text-gray-500">Tenure</p>
               <p className="font-medium text-gray-900">
-                {guidance.suggested_terms.recommended_tenure_months} months
+                {guidance.suggested_terms.tenure_months} months
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Max EMI</p>
+              <p className="text-xs text-gray-500">EMI Amount</p>
               <p className="font-medium text-gray-900">
-                {formatCurrency(guidance.suggested_terms.max_emi)}
+                {formatCurrency(guidance.suggested_terms.emi_amount)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Recommended EMI</p>
+              <p className="text-xs text-gray-500">Total Repayment</p>
               <p className="font-medium text-gray-900">
-                {formatCurrency(guidance.suggested_terms.recommended_emi)}
+                {formatCurrency(guidance.suggested_terms.total_repayment)}
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Interest Rate</p>
               <p className="font-medium text-gray-900">
-                {guidance.suggested_terms.interest_rate_guidance}
+                {guidance.suggested_terms.interest_rate_max_pct}%
               </p>
             </div>
           </div>
@@ -435,7 +435,7 @@ function GuidanceDetail({ guidance }: { guidance: CreditGuidance }) {
             </div>
           </div>
           <ul className="space-y-1.5">
-            {guidance.risk_summary.key_risks.map((r, i) => (
+            {guidance.risk_summary.key_risk_factors.map((r, i) => (
               <li
                 key={i}
                 className="flex items-start gap-2 text-sm text-gray-600"
@@ -457,14 +457,13 @@ function GuidanceDetail({ guidance }: { guidance: CreditGuidance }) {
               <div key={i} className="rounded-lg border border-gray-200 p-4">
                 <p className="font-medium text-gray-900">{alt.description}</p>
                 <p className="mt-1 text-sm text-gray-500">
-                  {formatCurrency(alt.amount_range.min_amount)} –{" "}
-                  {formatCurrency(alt.amount_range.max_amount)} · {alt.timing}
+                  {formatCurrency(alt.estimated_amount)} · {alt.timing}
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs font-medium text-green-700">Pros</p>
+                    <p className="text-xs font-medium text-green-700">Advantages</p>
                     <ul className="mt-1 space-y-1">
-                      {alt.pros.map((p, j) => (
+                      {alt.advantages.map((p, j) => (
                         <li
                           key={j}
                           className="flex items-start gap-1 text-xs text-gray-600"
@@ -475,9 +474,9 @@ function GuidanceDetail({ guidance }: { guidance: CreditGuidance }) {
                     </ul>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-red-700">Cons</p>
+                    <p className="text-xs font-medium text-red-700">Disadvantages</p>
                     <ul className="mt-1 space-y-1">
-                      {alt.cons.map((c, j) => (
+                      {alt.disadvantages.map((c, j) => (
                         <li
                           key={j}
                           className="flex items-start gap-1 text-xs text-gray-600"
@@ -505,14 +504,14 @@ function GuidanceDetail({ guidance }: { guidance: CreditGuidance }) {
           {/* Reasoning steps */}
           <div className="relative space-y-4 pl-6 before:absolute before:left-2.5 before:top-0 before:h-full before:w-px before:bg-gray-200">
             {guidance.explanation.reasoning_steps.map((step) => (
-              <div key={step.step} className="relative">
+              <div key={step.step_number} className="relative">
                 <span className="absolute -left-6 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-700">
-                  {step.step}
+                  {step.step_number}
                 </span>
                 <p className="text-sm font-medium text-gray-900">
                   {step.factor}
                 </p>
-                <p className="text-sm text-gray-600">{step.analysis}</p>
+                <p className="text-sm text-gray-600">{step.observation}</p>
                 <p className="text-xs text-gray-400 mt-0.5">
                   Impact: {step.impact}
                 </p>
@@ -520,25 +519,7 @@ function GuidanceDetail({ guidance }: { guidance: CreditGuidance }) {
             ))}
           </div>
 
-          {/* Assumptions & caveats */}
-          {guidance.explanation.key_assumptions.length > 0 && (
-            <div className="mt-4">
-              <p className="text-xs font-medium text-gray-500 mb-1">
-                Key Assumptions
-              </p>
-              <ul className="space-y-1">
-                {guidance.explanation.key_assumptions.map((a, i) => (
-                  <li
-                    key={i}
-                    className="text-xs text-gray-500 flex items-start gap-1"
-                  >
-                    <span>•</span> {a}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
+          {/* Caveats */}
           {guidance.explanation.caveats.length > 0 && (
             <div className="mt-3">
               <p className="text-xs font-medium text-amber-600 mb-1">

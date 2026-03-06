@@ -3,11 +3,11 @@ import { LoanSourceType, LoanStatus } from "./shared";
 // ─── Domain Types ───────────────────────────────────────────────────────────
 
 export interface LoanTerms {
-  principal_amount: number;
-  interest_rate: number;
+  principal: number;
+  interest_rate_annual: number;
   tenure_months: number;
   emi_amount: number;
-  currency: string;
+  collateral_description?: string | null;
 }
 
 export interface RepaymentRecord {
@@ -57,11 +57,17 @@ export interface TrackLoanRequest {
   profile_id: string;
   lender_name: string;
   source_type: LoanSourceType;
-  principal_amount: number;
-  interest_rate: number;
-  tenure_months: number;
+  terms: {
+    principal: number;
+    interest_rate_annual: number;
+    tenure_months: number;
+    emi_amount?: number;
+    collateral_description?: string;
+  };
   disbursement_date: string;
+  maturity_date?: string;
   purpose?: string;
+  notes?: string;
 }
 
 export interface RecordRepaymentRequest {

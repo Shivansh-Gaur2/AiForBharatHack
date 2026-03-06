@@ -125,6 +125,7 @@ class DynamoDBGuidanceRepository:
                 "end_year": g.optimal_timing.end_year,
                 "suitability": g.optimal_timing.suitability,
                 "reason": g.optimal_timing.reason,
+                "expected_surplus": g.optimal_timing.expected_surplus,
             }),
             "suggested_terms": json.dumps({
                 "tenure_months": g.suggested_terms.tenure_months,
@@ -194,6 +195,7 @@ class DynamoDBGuidanceRepository:
                 end_year=timing["end_year"],
                 suitability=TimingSuitability(timing["suitability"]),
                 reason=timing["reason"],
+                expected_surplus=timing.get("expected_surplus", 0.0),
             ),
             suggested_terms=SuggestedTerms(
                 tenure_months=terms["tenure_months"],

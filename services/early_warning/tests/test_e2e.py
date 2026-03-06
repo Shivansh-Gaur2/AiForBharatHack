@@ -11,7 +11,7 @@ import pytest
 
 pytestmark = pytest.mark.e2e  # requires running service — skipped by default
 
-BASE = "http://localhost:8084/api/v1/early-warning"
+BASE = "http://localhost:8005/api/v1/early-warning"
 
 
 @pytest.fixture(scope="module")
@@ -23,7 +23,7 @@ def client():
 # Health Check
 # ===========================================================================
 def test_health():
-    r = httpx.get("http://localhost:8084/health")
+    r = httpx.get("http://localhost:8005/health")
     assert r.status_code == 200
     assert r.json()["service"] == "early-warning"
 
@@ -321,14 +321,21 @@ class TestMonitoring:
 # ===========================================================================
 # Cross-service Simulate (with stubs)
 # ===========================================================================
+_BASELINE = [
+    {"month": m, "year": 2026, "inflow": 15000, "outflow": 8000}
+    for m in range(1, 13)
+]
+
+
 class TestCrossServiceSimulate:
     def test_simulate_cross_service(self, client):
-        resp = client.post("/scenarios/simulate", json={
+        resp = client.post("/scenarios/simulate/direct", json={
             "profile_id": "e2e-cross-sim",
             "scenario_type": "INCOME_SHOCK",
             "name": "Cross-Service Test",
             "income_reduction_pct": 25.0,
             "duration_months": 6,
+            "baseline_projections": _BASELINE,
         })
         assert resp.status_code == 201
         data = resp.json()
@@ -336,12 +343,13 @@ class TestCrossServiceSimulate:
         assert len(data["projections"]) > 0
 
     def test_compare_cross_service(self, client):
-        resp = client.post("/scenarios/compare", json={
+        resp = client.post("/scenarios/compare/direct", json={
             "profile_id": "e2e-cross-compare",
             "scenarios": [
                 {"scenario_type": "INCOME_SHOCK", "name": "A", "income_reduction_pct": 10},
                 {"scenario_type": "WEATHER_IMPACT", "name": "B", "weather_adjustment": 0.6},
             ],
+            "baseline_projections": _BASELINE,
         })
         assert resp.status_code == 201
         assert len(resp.json()["results"]) == 2

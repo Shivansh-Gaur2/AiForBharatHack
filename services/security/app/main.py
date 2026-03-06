@@ -29,6 +29,7 @@ from .config import Settings
 from .domain.auth_service import AuthService
 from .domain.services import SecurityService
 from .infrastructure.dynamodb_repo import DynamoDBSecurityRepository
+from .infrastructure.memory_repo import InMemorySecurityRepository
 
 # ---------------------------------------------------------------------------
 # Settings & Logging
@@ -82,11 +83,16 @@ def _create_dynamodb_resource():
     return boto3.resource("dynamodb", **kwargs)
 
 
-ddb = _create_dynamodb_resource()
-repo = DynamoDBSecurityRepository(ddb, settings.dynamodb_table_name)
+if settings.storage_backend == "dynamodb":
+    ddb = _create_dynamodb_resource()
+    repo = DynamoDBSecurityRepository(ddb, settings.dynamodb_table_name)
+    logger.info("Using DynamoDBSecurityRepository (table=%s)", settings.dynamodb_table_name)
+else:
+    repo = InMemorySecurityRepository()
+    logger.info("Using InMemorySecurityRepository (STORAGE_BACKEND=memory)")
 
 # Event publisher
-if settings.sns_topic_arn:
+if settings.sns_topic_arn and settings.storage_backend == "dynamodb":
     from .infrastructure.sqs_events import create_security_event_publisher
 
     event_publisher = create_security_event_publisher(
@@ -95,7 +101,7 @@ if settings.sns_topic_arn:
     logger.info("Using SNS event publisher: %s", settings.sns_topic_arn)
 else:
     event_publisher = AsyncInMemoryEventPublisher()
-    logger.info("Using AsyncInMemoryEventPublisher (no SNS topic)")
+    logger.info("Using AsyncInMemoryEventPublisher (memory mode or no SNS topic)")
 
 # Assemble service — the DynamoDB repo implements all four repository interfaces
 security_service = SecurityService(

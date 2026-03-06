@@ -6,55 +6,12 @@ Production adapters that call Risk, CashFlow, Loan, and Profile services.
 from __future__ import annotations
 
 import logging
-import time
-from dataclasses import dataclass, field
-from enum import StrEnum
 
 import httpx
 
+from services.shared.circuit_breaker import CircuitBreaker, CircuitState
+
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Circuit Breaker (same pattern as cashflow_service)
-# ---------------------------------------------------------------------------
-class CircuitState(StrEnum):
-    CLOSED = "CLOSED"
-    OPEN = "OPEN"
-    HALF_OPEN = "HALF_OPEN"
-
-
-@dataclass
-class CircuitBreaker:
-    """Simple circuit breaker for external API calls."""
-    name: str
-    failure_threshold: int = 3
-    recovery_timeout_seconds: float = 60.0
-    _failure_count: int = field(default=0, init=False)
-    _state: CircuitState = field(default=CircuitState.CLOSED, init=False)
-    _last_failure_time: float = field(default=0.0, init=False)
-
-    @property
-    def state(self) -> CircuitState:
-        if self._state == CircuitState.OPEN and time.monotonic() - self._last_failure_time >= self.recovery_timeout_seconds:
-            self._state = CircuitState.HALF_OPEN
-            logger.info("Circuit %s → HALF_OPEN", self.name)
-        return self._state
-
-    def record_success(self) -> None:
-        if self._state in (CircuitState.HALF_OPEN, CircuitState.CLOSED):
-            self._failure_count = 0
-            self._state = CircuitState.CLOSED
-
-    def record_failure(self) -> None:
-        self._failure_count += 1
-        self._last_failure_time = time.monotonic()
-        if self._failure_count >= self.failure_threshold:
-            self._state = CircuitState.OPEN
-            logger.warning("Circuit %s → OPEN after %d failures", self.name, self._failure_count)
-
-    def is_call_permitted(self) -> bool:
-        return self.state in (CircuitState.CLOSED, CircuitState.HALF_OPEN)
 
 
 # ---------------------------------------------------------------------------

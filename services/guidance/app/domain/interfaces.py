@@ -70,6 +70,13 @@ class CashFlowDataProvider(Protocol):
         """Returns repayment capacity dict with recommended_emi, max_emi, etc."""
         ...
 
+    async def get_weather_market_context(
+        self,
+        profile_id: ProfileId,
+    ) -> dict:
+        """Returns weather/market context dict for AI prompt enrichment."""
+        ...
+
 
 class LoanDataProvider(Protocol):
     """Fetches loan data from the Loan Tracker service."""

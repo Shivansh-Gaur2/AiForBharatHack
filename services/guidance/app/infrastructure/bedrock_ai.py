@@ -54,14 +54,24 @@ a rural farmer can easily understand:
 - Debt-to-income ratio: {dti:.0%}
 - Monthly repayment capacity: Rs {capacity:,.0f}
 - Confidence: {confidence}
+- Current weather outlook: {weather_condition}
+- Current market/crop price conditions: {market_condition}
 
 If the risk is HIGH or VERY_HIGH, include a gentle caution. Otherwise be encouraging.
+Mention weather or market conditions only if they are not "normal".
 Write only the summary paragraph.
 """
 
 
 def _build_prompt(context: dict[str, Any]) -> str:
-    return _USER_TEMPLATE.format(**context)
+    # Supply safe defaults for optional external-data keys so callers that
+    # do not provide them (e.g. direct-guidance path) still work.
+    enriched: dict[str, Any] = {
+        "weather_condition": "normal",
+        "market_condition": "normal",
+        **context,
+    }
+    return _USER_TEMPLATE.format(**enriched)
 
 
 # ---------------------------------------------------------------------------

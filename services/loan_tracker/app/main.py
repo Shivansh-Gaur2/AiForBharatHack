@@ -29,6 +29,7 @@ from .api.routes import router, set_loan_service
 from .config import Settings
 from .domain.services import LoanTrackerService
 from .infrastructure.dynamodb_repo import DynamoDBLoanRepository
+from .infrastructure.memory_repo import InMemoryLoanRepository
 from .infrastructure.sqs_events import create_loan_event_publisher
 
 # ---------------------------------------------------------------------------
@@ -64,17 +65,22 @@ def _create_dynamodb_resource():
     return boto3.resource("dynamodb", **kwargs)
 
 
-ddb = _create_dynamodb_resource()
-repo = DynamoDBLoanRepository(ddb, settings.dynamodb_table_name)
+if settings.storage_backend == "dynamodb":
+    ddb = _create_dynamodb_resource()
+    repo = DynamoDBLoanRepository(ddb, settings.dynamodb_table_name)
+    logger.info("Using DynamoDBLoanRepository (table=%s)", settings.dynamodb_table_name)
+else:
+    repo = InMemoryLoanRepository()
+    logger.info("Using InMemoryLoanRepository (STORAGE_BACKEND=memory)")
 
-if settings.sns_topic_arn:
+if settings.sns_topic_arn and settings.storage_backend == "dynamodb":
     event_publisher = create_loan_event_publisher(
         settings.sns_topic_arn, settings.aws_region,
     )
     logger.info("Using SNS event publisher: %s", settings.sns_topic_arn)
 else:
     event_publisher = AsyncInMemoryEventPublisher()
-    logger.info("Using AsyncInMemoryEventPublisher (no SNS topic configured)")
+    logger.info("Using AsyncInMemoryEventPublisher (memory mode or no SNS topic)")
 
 loan_service = LoanTrackerService(repo=repo, events=event_publisher)
 set_loan_service(loan_service)

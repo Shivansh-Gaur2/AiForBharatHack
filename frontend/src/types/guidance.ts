@@ -19,38 +19,41 @@ export interface GuidanceTimingWindow {
 }
 
 export interface SuggestedTerms {
-  recommended_tenure_months: number;
-  max_emi: number;
-  recommended_emi: number;
-  interest_rate_guidance: string;
+  tenure_months: number;
+  interest_rate_max_pct: number;
+  emi_amount: number;
+  total_repayment: number;
+  source_recommendation: string;
 }
 
 export interface RiskSummary {
   risk_score: number;
   risk_category: RiskCategory;
-  key_risks: string[];
+  dti_ratio: number;
+  repayment_capacity_pct: number;
+  key_risk_factors: string[];
 }
 
 export interface AlternativeOption {
+  option_type: string;
   description: string;
-  amount_range: AmountRange;
+  estimated_amount: number;
   timing: string;
-  pros: string[];
-  cons: string[];
+  advantages: string[];
+  disadvantages: string[];
 }
 
 export interface ReasoningStep {
-  step: number;
+  step_number: number;
   factor: string;
-  analysis: string;
+  observation: string;
   impact: string;
 }
 
 export interface GuidanceExplanation {
-  guidance_id: string;
   summary: string;
   reasoning_steps: ReasoningStep[];
-  key_assumptions: string[];
+  confidence: string;
   caveats: string[];
 }
 
@@ -69,7 +72,7 @@ export interface CreditGuidance {
   explanation: GuidanceExplanation | null;
   status: GuidanceStatus;
   created_at: string;
-  valid_until: string;
+  expires_at: string | null;
 }
 
 export interface GuidanceRequest {

@@ -29,8 +29,11 @@ class Settings:
     cognito_app_client_id: str = ""
     skip_auth: bool = False  # True for local dev
 
+    # Storage
+    storage_backend: str = "memory"  # "memory" | "dynamodb"
+
     # App
-    environment: str = "development"
+    environment: str = "local"
     log_level: str = "INFO"
 
     @classmethod
@@ -44,7 +47,8 @@ class Settings:
             cognito_user_pool_id=os.getenv("COGNITO_USER_POOL_ID", ""),
             cognito_app_client_id=os.getenv("COGNITO_APP_CLIENT_ID", ""),
             skip_auth=os.getenv("SKIP_AUTH", "true").lower() == "true",
-            environment=os.getenv("ENVIRONMENT", "development"),
+            storage_backend=os.getenv("STORAGE_BACKEND", "memory"),
+            environment=os.getenv("ENVIRONMENT", "local"),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
         )
 

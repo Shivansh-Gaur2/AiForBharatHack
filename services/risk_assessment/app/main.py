@@ -30,6 +30,7 @@ from .config import Settings
 from .domain.services import RiskAssessmentService
 from .infrastructure.data_providers import StubLoanDataProvider, StubProfileDataProvider
 from .infrastructure.dynamodb_repo import DynamoDBRiskRepository
+from .infrastructure.memory_repo import InMemoryRiskRepository
 
 # ---------------------------------------------------------------------------
 # Settings & Logging
@@ -64,8 +65,13 @@ def _create_dynamodb_resource():
     return boto3.resource("dynamodb", **kwargs)
 
 
-ddb = _create_dynamodb_resource()
-repo = DynamoDBRiskRepository(ddb, settings.dynamodb_table_name)
+if settings.storage_backend == "dynamodb":
+    ddb = _create_dynamodb_resource()
+    repo = DynamoDBRiskRepository(ddb, settings.dynamodb_table_name)
+    logger.info("Using DynamoDBRiskRepository (table=%s)", settings.dynamodb_table_name)
+else:
+    repo = InMemoryRiskRepository()
+    logger.info("Using InMemoryRiskRepository (STORAGE_BACKEND=memory)")
 
 # Data providers — use HTTP adapters when service URLs are configured,
 # otherwise fall back to stubs for local dev/testing

@@ -11,7 +11,7 @@ import pytest
 
 pytestmark = pytest.mark.e2e  # requires running service — skipped by default
 
-BASE = "http://localhost:8086/api/v1/security"
+BASE = "http://localhost:8007/api/v1/security"
 
 
 @pytest.fixture(scope="module")
@@ -23,7 +23,7 @@ def client():
 # Health Check
 # ===========================================================================
 def test_health(client):
-    resp = httpx.get("http://localhost:8086/health", timeout=10)
+    resp = httpx.get("http://localhost:8007/health", timeout=10)
     assert resp.status_code == 200
     body = resp.json()
     assert body["service"] == "security"

@@ -140,6 +140,6 @@ class TestHttpProviderFallbacks:
 
     @pytest.mark.asyncio
     async def test_market_no_url_returns_neutral(self):
-        provider = HttpMarketDataProvider(base_url=None)
+        provider = HttpMarketDataProvider(api_key=None)
         adj = await provider.get_market_adjustment("rice", "test")
         assert adj == 1.0

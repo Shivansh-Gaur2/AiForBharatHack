@@ -109,7 +109,7 @@ def test_bedrock() -> bool:
     from botocore.exceptions import ClientError
 
     print("-" * 55)
-    print("TEST 3 — Amazon Bedrock (Titan Text Lite)")
+    print(f"TEST 3 — Amazon Bedrock ({BEDROCK_MODEL})")
     print("-" * 55)
     if not BEDROCK_MODEL or not AWS_KEY_ID or AWS_KEY_ID == "local":
         print("  SKIP: BEDROCK_MODEL_ID or AWS credentials not set")
@@ -121,15 +121,32 @@ def test_bedrock() -> bool:
             aws_access_key_id=AWS_KEY_ID,
             aws_secret_access_key=AWS_SECRET,
         )
-        body = json.dumps({
-            "inputText": (
-                "In one sentence, give a friendly repayment tip for a small farmer."
-            ),
-            "textGenerationConfig": {
-                "maxTokenCount": 80,
-                "temperature": 0.4,
-            },
-        })
+        # Detect model family (handle cross-region us./global. prefixes)
+        base = BEDROCK_MODEL.split("/")[-1]
+        is_nova   = "amazon.nova" in base
+        is_claude = "anthropic."  in base
+
+        prompt = "In one sentence, give a friendly repayment tip for a small farmer."
+
+        if is_claude:
+            body = json.dumps({
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 80,
+                "messages": [{"role": "user", "content": prompt}],
+            })
+        elif is_nova:
+            body = json.dumps({
+                "messages": [
+                    {"role": "user", "content": [{"text": prompt}]}
+                ],
+                "inferenceConfig": {"maxTokens": 80, "temperature": 0.4},
+            })
+        else:  # Titan
+            body = json.dumps({
+                "inputText": prompt,
+                "textGenerationConfig": {"maxTokenCount": 80, "temperature": 0.4},
+            })
+
         resp = client.invoke_model(
             modelId=BEDROCK_MODEL,
             contentType="application/json",
@@ -137,7 +154,14 @@ def test_bedrock() -> bool:
             body=body,
         )
         result = json.loads(resp["body"].read())
-        text = result.get("results", [{}])[0].get("outputText", "").strip()
+
+        if is_claude:
+            text = result.get("content", [{}])[0].get("text", "").strip()
+        elif is_nova:
+            text = result.get("output", {}).get("message", {}).get("content", [{}])[0].get("text", "").strip()
+        else:
+            text = result.get("results", [{}])[0].get("outputText", "").strip()
+
         print(f"  PASS  AI response: {text[:250]}")
         return True
     except ClientError as exc:

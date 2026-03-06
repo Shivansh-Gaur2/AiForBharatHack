@@ -17,7 +17,8 @@ class Settings:
     weather_api_key: str | None = None       # OpenWeather API key
     market_api_key: str | None = None        # data.gov.in Agmarknet API key
     skip_tls_verify: bool = False            # set True in local dev with proxy/cert issues
-    skip_auth: bool = False
+    skip_auth: bool = True
+    storage_backend: str = "memory"  # "memory" | "dynamodb"
     environment: str = "local"
     log_level: str = "INFO"
 
@@ -33,7 +34,8 @@ class Settings:
             weather_api_key=os.getenv("WEATHER_API_KEY"),
             market_api_key=os.getenv("MARKET_API_KEY"),
             skip_tls_verify=os.getenv("SKIP_TLS_VERIFY", "false").lower() == "true",
-            skip_auth=os.getenv("SKIP_AUTH", "false").lower() == "true",
+            skip_auth=os.getenv("SKIP_AUTH", "true").lower() == "true",
+            storage_backend=os.getenv("STORAGE_BACKEND", "memory"),
             environment=os.getenv("ENVIRONMENT", "local"),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
         )

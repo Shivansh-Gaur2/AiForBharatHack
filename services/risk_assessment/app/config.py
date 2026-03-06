@@ -14,7 +14,8 @@ class Settings:
     aws_region: str = "ap-south-1"
     profile_service_url: str | None = None
     loan_service_url: str | None = None
-    skip_auth: bool = False
+    skip_auth: bool = True
+    storage_backend: str = "memory"  # "memory" | "dynamodb"
     environment: str = "local"
     log_level: str = "INFO"
 
@@ -27,7 +28,8 @@ class Settings:
             aws_region=os.getenv("AWS_REGION", "ap-south-1"),
             profile_service_url=os.getenv("PROFILE_SERVICE_URL"),
             loan_service_url=os.getenv("LOAN_SERVICE_URL"),
-            skip_auth=os.getenv("SKIP_AUTH", "false").lower() == "true",
+            skip_auth=os.getenv("SKIP_AUTH", "true").lower() == "true",
+            storage_backend=os.getenv("STORAGE_BACKEND", "memory"),
             environment=os.getenv("ENVIRONMENT", "local"),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
         )

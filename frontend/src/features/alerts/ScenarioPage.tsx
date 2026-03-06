@@ -12,7 +12,7 @@ import {
   AlertBanner,
   PageSpinner,
 } from "@/components/ui";
-import { formatCurrency, formatPercent, formatEnum, getMonthName } from "@/lib/utils";
+import { formatCurrency, formatEnum, getMonthName } from "@/lib/utils";
 import { ScenarioType } from "@/types";
 import type { SimulationResult, ScenarioRequest } from "@/types";
 import {
