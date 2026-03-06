@@ -32,8 +32,8 @@ export function LoanDetailPage() {
     );
 
   const repaidPct =
-    loan.terms.principal_amount > 0
-      ? loan.total_repaid / loan.terms.principal_amount
+    loan.terms.principal > 0
+      ? loan.total_repaid / loan.terms.principal
       : 0;
 
   return (
@@ -67,7 +67,7 @@ export function LoanDetailPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Principal"
-          value={formatCurrency(loan.terms.principal_amount)}
+          value={formatCurrency(loan.terms.principal)}
           icon={<IndianRupee className="h-5 w-5" />}
         />
         <StatCard
@@ -77,7 +77,7 @@ export function LoanDetailPage() {
         />
         <StatCard
           label="Interest Rate"
-          value={`${loan.terms.interest_rate}%`}
+          value={`${loan.terms.interest_rate_annual}%`}
           icon={<Percent className="h-5 w-5" />}
         />
         <StatCard

@@ -24,7 +24,7 @@ import { IncomeExpenseChart } from "./IncomeExpenseChart";
 import { VolatilityCard } from "./VolatilityCard";
 
 export function ProfileDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { profileId: id } = useParams<{ profileId: string }>();
 
   const { data: profile, isLoading, error } = useQuery({
     queryKey: ["profile", id],

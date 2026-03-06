@@ -70,6 +70,7 @@ def _guidance_to_dto(g: CreditGuidance) -> GuidanceDTO:
             end_year=g.optimal_timing.end_year,
             suitability=g.optimal_timing.suitability,
             reason=g.optimal_timing.reason,
+            expected_surplus=g.optimal_timing.expected_surplus,
         ),
         suggested_terms=SuggestedTermsDTO(
             tenure_months=g.suggested_terms.tenure_months,
@@ -213,6 +214,7 @@ async def optimize_timing(req: TimingRequest):
                 end_year=timing.end_year,
                 suitability=timing.suitability,
                 reason=timing.reason,
+                expected_surplus=timing.expected_surplus,
             ),
         )
     except ValueError as e:

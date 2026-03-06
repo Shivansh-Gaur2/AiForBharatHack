@@ -66,6 +66,9 @@ class FakeCashFlowDataProvider:
     async def get_repayment_capacity(self, profile_id: str) -> dict:
         return {"recommended_emi": 3500, "max_emi": 5000}
 
+    async def get_weather_market_context(self, profile_id: str) -> dict:
+        return {"weather_condition": "normal", "market_condition": "normal"}
+
 
 class FakeLoanDataProvider:
     def __init__(self, exposure=None):

@@ -256,6 +256,7 @@ class GuidanceService:
         if self._ai is None:
             return guidance
         try:
+            weather_market = await self._cashflow.get_weather_market_context(guidance.profile_id)
             context = {
                 "purpose": guidance.loan_purpose.value.replace("_", " ").lower(),
                 "min_amount": guidance.recommended_amount.min_amount,
@@ -266,6 +267,8 @@ class GuidanceService:
                 "dti": guidance.risk_summary.dti_ratio,
                 "capacity": guidance.risk_summary.repayment_capacity_pct,
                 "confidence": guidance.explanation.confidence,
+                "weather_condition": weather_market.get("weather_condition", "normal"),
+                "market_condition": weather_market.get("market_condition", "normal"),
             }
             ai_summary = await self._ai.generate_summary(context)
             if ai_summary:

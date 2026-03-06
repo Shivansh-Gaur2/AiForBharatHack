@@ -79,6 +79,7 @@ class TimingWindow:
     end_year: int
     suitability: TimingSuitability
     reason: str
+    expected_surplus: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -347,6 +348,7 @@ def find_optimal_timing(
         end_month=end.month, end_year=end.year,
         suitability=suitability,
         reason=_timing_reason(suitability, best_avg, deficit_count),
+        expected_surplus=round(best_avg, 2),
     )
 
 

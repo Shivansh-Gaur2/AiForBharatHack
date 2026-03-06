@@ -91,8 +91,8 @@ export function LoanListPage() {
                     </h3>
                     <p className="text-sm text-gray-500">
                       {formatEnum(loan.source_type)} ·{" "}
-                      {formatCurrency(loan.terms.principal_amount)} @{" "}
-                      {loan.terms.interest_rate}% for{" "}
+                      {formatCurrency(loan.terms.principal)} @{" "}
+                      {loan.terms.interest_rate_annual}% for{" "}
                       {loan.terms.tenure_months} months
                     </p>
                   </div>

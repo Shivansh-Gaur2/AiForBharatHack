@@ -31,6 +31,7 @@ class TimingWindowDTO(BaseModel):
     end_year: int
     suitability: str
     reason: str
+    expected_surplus: float = 0.0
 
 
 class SuggestedTermsDTO(BaseModel):

@@ -36,9 +36,12 @@ export function CreateLoanPage() {
       profile_id: profileId,
       lender_name: lenderName,
       source_type: sourceType,
-      principal_amount: Number(principal),
-      interest_rate: Number(rate),
-      tenure_months: Number(tenure),
+      terms: {
+        principal: Number(principal),
+        interest_rate_annual: Number(rate),
+        tenure_months: Number(tenure),
+        emi_amount: 0,
+      },
       disbursement_date: disbursementDate,
       purpose: purpose || undefined,
     });

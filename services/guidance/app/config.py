@@ -20,7 +20,8 @@ class Settings:
     # Amazon Bedrock AI (optional — enriches guidance summaries)
     bedrock_model_id: str | None = None      # e.g. amazon.nova-micro-v1:0
     bedrock_region: str = "us-east-1"
-    skip_auth: bool = False
+    skip_auth: bool = True
+    storage_backend: str = "memory"  # "memory" | "dynamodb"
     environment: str = "local"
     log_level: str = "INFO"
 
@@ -38,7 +39,8 @@ class Settings:
             early_warning_service_url=os.getenv("EARLY_WARNING_SERVICE_URL"),
             bedrock_model_id=os.getenv("BEDROCK_MODEL_ID"),
             bedrock_region=os.getenv("BEDROCK_REGION", "us-east-1"),
-            skip_auth=os.getenv("SKIP_AUTH", "false").lower() == "true",
+            skip_auth=os.getenv("SKIP_AUTH", "true").lower() == "true",
+            storage_backend=os.getenv("STORAGE_BACKEND", "memory"),
             environment=os.getenv("ENVIRONMENT", "local"),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
         )

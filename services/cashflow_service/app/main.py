@@ -35,6 +35,7 @@ from .infrastructure.data_providers import (
     StubWeatherDataProvider,
 )
 from .infrastructure.dynamodb_repo import DynamoDBCashFlowRepository
+from .infrastructure.memory_repo import InMemoryCashFlowRepository
 from .infrastructure.sqs_events import create_cashflow_event_publisher
 
 # ---------------------------------------------------------------------------
@@ -72,8 +73,13 @@ def _create_dynamodb_resource():
     return boto3.resource("dynamodb", **kwargs)
 
 
-ddb = _create_dynamodb_resource()
-repo = DynamoDBCashFlowRepository(ddb, settings.dynamodb_table_name)
+if settings.storage_backend == "dynamodb":
+    ddb = _create_dynamodb_resource()
+    repo = DynamoDBCashFlowRepository(ddb, settings.dynamodb_table_name)
+    logger.info("Using DynamoDBCashFlowRepository (table=%s)", settings.dynamodb_table_name)
+else:
+    repo = InMemoryCashFlowRepository()
+    logger.info("Using InMemoryCashFlowRepository (STORAGE_BACKEND=memory)")
 
 # Weather provider — use HTTP adapter when API key is configured
 if settings.weather_api_key:
@@ -115,14 +121,14 @@ else:
     logger.info("Using StubLoanDataProvider (no LOAN_SERVICE_URL)")
 
 # Event publisher
-if settings.sns_topic_arn:
+if settings.sns_topic_arn and settings.storage_backend == "dynamodb":
     event_publisher = create_cashflow_event_publisher(
         settings.sns_topic_arn, settings.aws_region,
     )
     logger.info("Using SNS event publisher: %s", settings.sns_topic_arn)
 else:
     event_publisher = AsyncInMemoryEventPublisher()
-    logger.info("Using AsyncInMemoryEventPublisher (no SNS topic)")
+    logger.info("Using AsyncInMemoryEventPublisher (memory mode or no SNS topic)")
 
 # Assemble service
 cashflow_service = CashFlowService(

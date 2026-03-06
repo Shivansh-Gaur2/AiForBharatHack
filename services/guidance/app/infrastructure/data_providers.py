@@ -50,6 +50,9 @@ class StubCashFlowDataProvider:
             "deficit_months": 3,
         }
 
+    async def get_weather_market_context(self, profile_id: ProfileId) -> dict:
+        return {"weather_condition": "normal", "market_condition": "normal"}
+
 
 class StubLoanDataProvider:
     """Returns reasonable defaults for loan exposure."""
