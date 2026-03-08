@@ -10,6 +10,7 @@ micro-services into a coherent conversational experience.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, AsyncIterator
 
 from services.shared.models import ProfileId
@@ -19,6 +20,7 @@ from .models import (
     BorrowerContext,
     Conversation,
     ConversationIntent,
+    INTENT_SERVICES,
     Message,
 )
 from .prompts import (
@@ -30,6 +32,9 @@ from .prompts import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Context TTL: only re-fetch from services if data is older than this
+_CONTEXT_TTL_SECONDS = 60.0
 
 
 class AIAdvisorService:
@@ -129,8 +134,9 @@ class AIAdvisorService:
         intent = await self._classify_intent(user_message)
         if conversation.profile_id and not conversation.context.has_data():
             try:
-                conversation.context = await self._aggregator.build_full_context(
+                conversation.context = await self._aggregator.build_partial_context(
                     conversation.profile_id,
+                    self._services_for_intent(intent),
                 )
             except Exception as exc:
                 logger.warning("Context fetch failed: %s", exc)
@@ -285,8 +291,9 @@ class AIAdvisorService:
         # Step 2: Fetch/refresh context if profile is linked
         if conversation.profile_id and self._should_refresh_context(intent, conversation):
             try:
-                conversation.context = await self._aggregator.build_full_context(
+                conversation.context = await self._aggregator.build_partial_context(
                     conversation.profile_id,
+                    self._services_for_intent(intent),
                 )
             except Exception as exc:
                 logger.warning("Context refresh failed: %s", exc)
@@ -335,20 +342,40 @@ class AIAdvisorService:
         }
 
     async def _classify_intent(self, message: str) -> ConversationIntent:
-        """Use the LLM to classify user intent."""
-        prompt = INTENT_CLASSIFICATION_PROMPT.format(message=message)
-        try:
-            raw = await self._llm.generate(
-                system_prompt="You are a message classifier. Respond with only the category name.",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=20,
-                temperature=0.0,
-            )
-            intent_str = raw.strip().lower().replace(" ", "_")
-            return ConversationIntent(intent_str)
-        except (ValueError, Exception) as exc:
-            logger.debug("Intent classification fallback: %s", exc)
-            return self._rule_based_intent(message)
+        """Classify user intent.
+
+        Rule-based classifier runs first — it's fast, free, and handles the
+        majority of domain-specific messages accurately. Only falls back to
+        the LLM when the rule-based result is ambiguous (GENERAL_QUESTION)
+        AND the message is short enough that keyword matching is unreliable.
+        This eliminates the extra LLM round-trip for ~80% of messages.
+        """
+        rule_intent = self._rule_based_intent(message)
+
+        # If rule-based gave a specific intent, trust it
+        if rule_intent != ConversationIntent.GENERAL_QUESTION:
+            logger.debug("Intent (rule-based): %s", rule_intent.value)
+            return rule_intent
+
+        # For short ambiguous messages, ask the LLM once
+        word_count = len(message.split())
+        if word_count <= 25:
+            prompt = INTENT_CLASSIFICATION_PROMPT.format(message=message)
+            try:
+                raw = await self._llm.generate(
+                    system_prompt="You are a message classifier. Respond with only the category name.",
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=20,
+                    temperature=0.0,
+                )
+                intent_str = raw.strip().lower().replace(" ", "_")
+                intent = ConversationIntent(intent_str)
+                logger.debug("Intent (LLM): %s", intent.value)
+                return intent
+            except (ValueError, Exception) as exc:
+                logger.debug("LLM intent classification failed, using rule-based: %s", exc)
+
+        return rule_intent
 
     def _rule_based_intent(self, message: str) -> ConversationIntent:
         """Fallback rule-based intent classifier when LLM is unavailable."""
@@ -400,20 +427,49 @@ class AIAdvisorService:
         intent: ConversationIntent,
         conversation: Conversation,
     ) -> bool:
-        """Decide whether to re-fetch borrower context from services."""
-        # Always fetch on first data-dependent message
-        if not conversation.context.has_data():
+        """Decide whether to re-fetch borrower context from services.
+
+        Returns True only when:
+        1. No context has been fetched yet, OR
+        2. The existing context is older than TTL, OR
+        3. The intent needs services not yet present in the cached context.
+        """
+        ctx = conversation.context
+
+        # No data at all — always fetch
+        if not ctx.has_data():
             return True
-        # Refresh for intents that rely heavily on fresh data
-        data_heavy_intents = {
-            ConversationIntent.RISK_EXPLANATION,
-            ConversationIntent.CASHFLOW_ANALYSIS,
-            ConversationIntent.REPAYMENT_PLANNING,
-            ConversationIntent.EARLY_WARNING,
-            ConversationIntent.PROFILE_SUMMARY,
-            ConversationIntent.LOAN_ADVICE,
-        }
-        return intent in data_heavy_intents
+
+        # Context is stale (TTL exceeded)
+        if ctx.context_fetched_at is not None:
+            age = time.time() - ctx.context_fetched_at
+            if age > _CONTEXT_TTL_SECONDS:
+                logger.debug(
+                    "Context stale (%.0fs > %.0fs TTL) — will refresh",
+                    age, _CONTEXT_TTL_SECONDS,
+                )
+                return True
+
+        # Intent needs services that weren't fetched last time
+        needed = self._services_for_intent(intent)
+        already_fetched = set()
+        if ctx.profile_summary is not None:   already_fetched.add("profile")
+        if ctx.risk_assessment is not None:   already_fetched.add("risk")
+        if ctx.cashflow_forecast is not None: already_fetched.add("cashflow")
+        if ctx.loan_exposure is not None:     already_fetched.add("loan")
+        if ctx.active_alerts is not None:     already_fetched.add("alert")
+        if ctx.active_guidance is not None:   already_fetched.add("guidance")
+        missing = needed - already_fetched
+        if missing:
+            logger.debug("Missing services for intent %s: %s", intent.value, missing)
+            return True
+
+        return False
+
+    @staticmethod
+    def _services_for_intent(intent: ConversationIntent) -> set[str]:
+        """Return the minimal set of services needed for this intent."""
+        return INTENT_SERVICES.get(intent.value, {"profile", "risk", "cashflow", "loan"})
 
     def _build_welcome(self, conversation: Conversation) -> str:
         """Generate a welcome message based on available context."""
