@@ -102,23 +102,14 @@ class HttpDataAggregator:
         if not self._loan_url:
             return {}
 
-        # Fetch both loan list and exposure
-        loans, exposure = await asyncio.gather(
-            self._safe_get(
-                "loan",
-                f"{self._loan_url}/api/v1/loans/borrower/{profile_id}",
-            ),
-            self._safe_get(
-                "loan",
-                f"{self._loan_url}/api/v1/loans/borrower/{profile_id}/exposure",
-            ),
-            return_exceptions=True,
+        # Fetch loan list (exposure needs annual_income which we may not have yet)
+        loans = await self._safe_get(
+            "loan",
+            f"{self._loan_url}/api/v1/loans/borrower/{profile_id}",
         )
         result: dict[str, Any] = {}
         if isinstance(loans, dict):
             result["loans"] = loans
-        if isinstance(exposure, dict):
-            result["exposure"] = exposure
         return result
 
     async def fetch_alerts(self, profile_id: ProfileId) -> list[dict[str, Any]]:
@@ -176,12 +167,22 @@ class HttpDataAggregator:
                 context.repayment_capacity = capacity
 
         if isinstance(loan_data, dict):
-            exposure = loan_data.get("exposure", {})
             loans = loan_data.get("loans", {})
-            if exposure:
-                context.loan_exposure = exposure
-            if isinstance(loans, dict) and loans.get("loans"):
-                context.active_loans = loans["loans"][:10]
+            if isinstance(loans, dict):
+                loan_items = loans.get("items", [])
+                if loan_items:
+                    context.active_loans = loan_items[:10]
+                    # Build exposure summary from the loan list
+                    total_outstanding = sum(l.get("outstanding_balance", 0) for l in loan_items)
+                    monthly_obligations = sum(l.get("monthly_obligation", 0) for l in loan_items)
+                    active_count = len([l for l in loan_items if l.get("status") == "ACTIVE"])
+                    sources = list({l.get("source_type", "UNKNOWN") for l in loan_items})
+                    context.loan_exposure = {
+                        "total_outstanding": total_outstanding,
+                        "monthly_obligations": monthly_obligations,
+                        "active_loan_count": active_count,
+                        "sources": [{"source_type": s} for s in sources],
+                    }
 
         if isinstance(alert_data, list):
             context.active_alerts = alert_data[:5]
@@ -202,7 +203,7 @@ class HttpDataAggregator:
     async def _safe_get(self, service: str, url: str) -> dict[str, Any]:
         """HTTP GET with circuit breaker and error handling."""
         breaker = self._breakers.get(service)
-        if breaker and not breaker.allow_request():
+        if breaker and not breaker.is_call_permitted():
             logger.debug("Circuit open for %s — skipping %s", service, url)
             return {}
 
@@ -239,8 +240,8 @@ class HttpDataAggregator:
         """Extract key profile fields into a flat summary dict."""
         personal = raw.get("personal_info", {})
         livelihood = raw.get("livelihood_info", {})
-        land = livelihood.get("land_holding", {})
-        crops = livelihood.get("crop_patterns", [])
+        land = livelihood.get("land_details", livelihood.get("land_holding", {}))
+        crops = livelihood.get("crops", livelihood.get("crop_patterns", []))
 
         income_records = raw.get("income_records", [])
         expense_records = raw.get("expense_records", [])
@@ -253,18 +254,24 @@ class HttpDataAggregator:
         if expense_records:
             avg_expense = sum(r.get("amount", 0) for r in expense_records) / len(expense_records)
 
+        # Name can be under 'name' or 'full_name'
+        name = personal.get("name", personal.get("full_name", ""))
+
         return {
-            "name": personal.get("full_name", ""),
+            "name": name,
             "occupation": livelihood.get("primary_occupation", ""),
             "region": personal.get("state", personal.get("district", "")),
-            "land_holding_acres": land.get("total_acres", 0),
+            "land_holding_acres": land.get("owned_acres", land.get("total_acres", 0)),
             "land_type": land.get("ownership_type", ""),
-            "household_size": personal.get("household_size", 0),
+            "household_size": personal.get("dependents", personal.get("household_size", 0)),
             "avg_monthly_income": avg_income,
             "avg_monthly_expense": avg_expense,
-            "crops": [c.get("crop_name", "") for c in crops if c.get("crop_name")],
+            "crops": [c.get("crop_name", c.get("name", "")) for c in crops if (c.get("crop_name") or c.get("name"))],
             "livestock_summary": livelihood.get("livestock_summary", "None"),
+            "livestock": livelihood.get("livestock", []),
             "dependents": personal.get("dependents", 0),
+            "age": personal.get("age", 0),
+            "location": personal.get("location", personal.get("district", "")),
         }
 
     def _normalize_forecast(self, raw: dict) -> dict[str, Any]:

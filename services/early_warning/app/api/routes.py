@@ -280,7 +280,7 @@ async def get_alert(alert_id: str):
     return _alert_to_dto(alert)
 
 
-@router.get("/alerts/profile/{profile_id}", response_model=AlertListDTO)
+@router.get("/alerts/profile/{profile_id}")
 async def get_profile_alerts(
     profile_id: str,
     limit: int = Query(50, ge=1, le=500),
@@ -288,21 +288,21 @@ async def get_profile_alerts(
     """Get all alerts for a profile."""
     svc = get_early_warning_service()
     alerts = await svc.get_alerts_for_profile(profile_id, limit)
-    return AlertListDTO(
-        items=[_alert_to_summary(a) for a in alerts],
-        count=len(alerts),
-    )
+    return {
+        "items": [_alert_to_dto(a) for a in alerts],
+        "count": len(alerts),
+    }
 
 
-@router.get("/alerts/profile/{profile_id}/active", response_model=AlertListDTO)
+@router.get("/alerts/profile/{profile_id}/active")
 async def get_active_alerts(profile_id: str):
     """Get active (non-resolved) alerts for a profile."""
     svc = get_early_warning_service()
     alerts = await svc.get_active_alerts(profile_id)
-    return AlertListDTO(
-        items=[_alert_to_summary(a) for a in alerts],
-        count=len(alerts),
-    )
+    return {
+        "items": [_alert_to_dto(a) for a in alerts],
+        "count": len(alerts),
+    }
 
 
 @router.post("/alerts/{alert_id}/escalate", response_model=AlertDTO)

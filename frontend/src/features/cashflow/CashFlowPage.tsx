@@ -14,9 +14,9 @@ import {
   EmptyState,
   Badge,
 } from "@/components/ui";
-import { formatCurrency, formatPercent, getMonthName } from "@/lib/utils";
-import { TIMING_COLORS } from "@/lib/colors";
+import { formatCurrency, getMonthName } from "@/lib/utils";
 import { CashFlowChart } from "./CashFlowChart";
+import { RecordCashFlowForm } from "./RecordCashFlowForm";
 
 export function CashFlowPage() {
   const [searchParams] = useSearchParams();
@@ -108,6 +108,11 @@ export function CashFlowPage() {
         )}
       </Card>
 
+      {/* Record entry form */}
+      {activeProfileId && (
+        <RecordCashFlowForm profileId={activeProfileId} />
+      )}
+
       {generateMutation.isError && (
         <AlertBanner
           variant="error"
@@ -144,13 +149,13 @@ export function CashFlowPage() {
               <StatCard
                 label="Monthly Disposable"
                 value={formatCurrency(
-                  forecast.repayment_capacity.monthly_disposable_income,
+                  forecast.repayment_capacity.monthly_surplus_avg,
                 )}
               />
               <StatCard
                 label="Max EMI Affordable"
                 value={formatCurrency(
-                  forecast.repayment_capacity.max_emi_affordable,
+                  forecast.repayment_capacity.max_affordable_emi,
                 )}
               />
               <StatCard
@@ -160,10 +165,8 @@ export function CashFlowPage() {
                 )}
               />
               <StatCard
-                label="Safety Margin"
-                value={formatPercent(
-                  forecast.repayment_capacity.safety_margin,
-                )}
+                label="DSCR"
+                value={`${forecast.repayment_capacity.debt_service_coverage_ratio.toFixed(1)}x`}
               />
             </div>
           )}
@@ -198,16 +201,21 @@ export function CashFlowPage() {
                           {getMonthName(tw.end_month)} {tw.end_year}
                         </span>
                         <Badge
-                          label={tw.suitability}
+                          label={tw.suitability_score >= 80 ? "OPTIMAL" : tw.suitability_score >= 60 ? "GOOD" : tw.suitability_score >= 40 ? "ACCEPTABLE" : "POOR"}
                           colorClass={
-                            TIMING_COLORS[tw.suitability] ??
-                            "bg-gray-100 text-gray-700"
+                            tw.suitability_score >= 80
+                              ? "text-green-700 bg-green-100"
+                              : tw.suitability_score >= 60
+                                ? "text-blue-700 bg-blue-100"
+                                : tw.suitability_score >= 40
+                                  ? "text-yellow-700 bg-yellow-100"
+                                  : "text-red-700 bg-red-100"
                           }
                         />
                       </div>
                       <p className="text-xs text-gray-500">{tw.reason}</p>
                       <p className="mt-1 text-xs text-green-600">
-                        Expected surplus: {formatCurrency(tw.expected_surplus)}
+                        Score: {tw.suitability_score.toFixed(0)}/100
                       </p>
                     </div>
                   ))}
@@ -224,36 +232,38 @@ export function CashFlowPage() {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {forecast.seasonal_patterns.map((sp, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg border border-gray-100 p-3"
-                    >
-                      <Badge label={sp.season} colorClass="bg-earth-100 text-earth-700" />
-                      <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                        <div>
-                          <p className="text-gray-400">Avg Inflow</p>
-                          <p className="font-medium text-green-600">
-                            {formatCurrency(sp.avg_inflow)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400">Avg Outflow</p>
-                          <p className="font-medium text-red-600">
-                            {formatCurrency(sp.avg_outflow)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400">Net Flow</p>
-                          <p
-                            className={`font-medium ${sp.net_flow >= 0 ? "text-green-600" : "text-red-600"}`}
-                          >
-                            {formatCurrency(sp.net_flow)}
-                          </p>
+                  {(() => {
+                    // Group by season and aggregate inflow/outflow
+                    const seasonMap = new Map<string, { inflow: number; outflow: number; months: Set<number> }>();
+                    for (const sp of forecast.seasonal_patterns) {
+                      const entry = seasonMap.get(sp.season) ?? { inflow: 0, outflow: 0, months: new Set<number>() };
+                      if (sp.direction === "INFLOW") entry.inflow += sp.average_monthly_amount;
+                      else entry.outflow += sp.average_monthly_amount;
+                      sp.months.forEach((m) => entry.months.add(m));
+                      seasonMap.set(sp.season, entry);
+                    }
+                    return Array.from(seasonMap.entries()).map(([season, data], i) => (
+                      <div key={i} className="rounded-lg border border-gray-100 p-3">
+                        <Badge label={season} colorClass="bg-earth-100 text-earth-700" />
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                          <div>
+                            <p className="text-gray-400">Avg Inflow</p>
+                            <p className="font-medium text-green-600">{formatCurrency(data.inflow)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">Avg Outflow</p>
+                            <p className="font-medium text-red-600">{formatCurrency(data.outflow)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400">Net Flow</p>
+                            <p className={`font-medium ${data.inflow - data.outflow >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              {formatCurrency(data.inflow - data.outflow)}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
               )}
             </Card>
@@ -270,7 +280,7 @@ export function CashFlowPage() {
                     className="flex items-start gap-2 text-sm text-gray-600"
                   >
                     <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-400" />
-                    {a}
+                    <span><strong>{a.factor}:</strong> {a.description}</span>
                   </li>
                 ))}
               </ul>

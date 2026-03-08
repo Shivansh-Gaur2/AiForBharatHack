@@ -24,11 +24,13 @@ export interface MonthlyProjection {
 }
 
 export interface SeasonalPattern {
+  category: string;
+  direction: string;
   season: string;
-  avg_inflow: number;
-  avg_outflow: number;
-  net_flow: number;
   months: number[];
+  average_monthly_amount: number;
+  peak_month: number;
+  variability_cv: number;
 }
 
 export interface UncertaintyBand {
@@ -44,33 +46,49 @@ export interface TimingWindow {
   start_year: number;
   end_month: number;
   end_year: number;
-  suitability: string;
-  expected_surplus: number;
+  suitability_score: number;
   reason: string;
 }
 
 export interface RepaymentCapacity {
   profile_id: string;
-  monthly_disposable_income: number;
-  max_emi_affordable: number;
+  monthly_surplus_avg: number;
+  monthly_surplus_min: number;
+  max_affordable_emi: number;
   recommended_emi: number;
-  safety_margin: number;
-  assessed_at: string;
+  emergency_reserve: number;
+  annual_repayment_capacity: number;
+  debt_service_coverage_ratio: number;
+  computed_at: string;
 }
 
 // ─── API DTOs ───────────────────────────────────────────────────────────────
 
+export interface ForecastAssumption {
+  factor: string;
+  description: string;
+  impact: string;
+}
+
 export interface CashFlowForecast {
   forecast_id: string;
   profile_id: string;
+  forecast_period_start_month: number;
+  forecast_period_start_year: number;
+  forecast_period_end_month: number;
+  forecast_period_end_year: number;
   monthly_projections: MonthlyProjection[];
   seasonal_patterns: SeasonalPattern[];
   uncertainty_bands: UncertaintyBand[];
-  assumptions: string[];
+  assumptions: ForecastAssumption[];
   repayment_capacity: RepaymentCapacity | null;
   timing_windows: TimingWindow[];
+  best_timing_window: TimingWindow | null;
+  total_projected_inflow: number;
+  total_projected_outflow: number;
   model_version: string;
-  generated_at: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface RecordCashFlowRequest {

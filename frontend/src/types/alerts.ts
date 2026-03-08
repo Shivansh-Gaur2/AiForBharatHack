@@ -9,18 +9,17 @@ import {
 // ─── Alert Types ────────────────────────────────────────────────────────────
 
 export interface ActionableRecommendation {
-  priority: number;
+  priority: number | string;
   action: string;
-  expected_impact: string;
-  timeline: string;
+  rationale: string;
+  estimated_impact: string;
 }
 
 export interface RiskFactorSnapshot {
-  factor_type: string;
+  factor_name: string;
   current_value: number;
   threshold: number;
-  severity: AlertSeverity;
-  description: string;
+  severity_contribution: string;
 }
 
 export interface Alert {
@@ -29,10 +28,12 @@ export interface Alert {
   alert_type: AlertType;
   severity: AlertSeverity;
   status: AlertStatus;
+  title: string;
+  description: string;
   risk_factors: RiskFactorSnapshot[];
   recommendations: ActionableRecommendation[];
-  message: string;
   created_at: string;
+  updated_at: string;
   acknowledged_at: string | null;
   resolved_at: string | null;
 }

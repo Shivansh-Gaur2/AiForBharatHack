@@ -93,6 +93,15 @@ class GuidanceService:
         exposure = await self._loan.get_debt_exposure(profile_id)
         household_expense = await self._profile.get_household_expense(profile_id)  # noqa: F841
 
+        # Fallback: if cashflow service returned no projections, we cannot
+        # generate meaningful guidance.  Log a warning and flag it.
+        if not projections:
+            logger.warning(
+                "No cashflow projections for %s — guidance will reflect zero data; "
+                "ensure the cashflow service has actual forecast data for this profile.",
+                profile_id,
+            )
+
         # Record data lineage (fire-and-forget)
         try:
             from services.shared.lineage import record_data_access
@@ -316,3 +325,9 @@ class GuidanceService:
     ) -> list[CreditGuidance]:
         """Get currently active guidance for a profile."""
         return await self._repo.find_active_guidance(profile_id)
+
+
+# ---------------------------------------------------------------------------
+# Module-level helpers (synthetic data removed — all data must come from
+# actual cashflow forecasts backed by real profile income records)
+# ---------------------------------------------------------------------------

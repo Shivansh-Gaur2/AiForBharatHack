@@ -110,6 +110,7 @@ class BorrowerContext:
             self.risk_assessment,
             self.cashflow_forecast,
             self.loan_exposure,
+            self.active_loans,
             self.active_alerts,
             self.active_guidance,
         ])
@@ -159,18 +160,43 @@ class BorrowerContext:
             sections.append(
                 f"REPAYMENT CAPACITY:\n"
                 f"  Recommended EMI: Rs {rc.get('recommended_emi', 0):,.0f}\n"
-                f"  Max EMI: Rs {rc.get('max_emi', 0):,.0f}\n"
-                f"  DSCR: {rc.get('dscr', 'N/A')}\n"
+                f"  Max affordable EMI: Rs {rc.get('max_affordable_emi', rc.get('max_emi', 0)):,.0f}\n"
+                f"  Monthly surplus (avg): Rs {rc.get('monthly_surplus_avg', 0):,.0f}\n"
+                f"  Monthly surplus (min): Rs {rc.get('monthly_surplus_min', 0):,.0f}\n"
+                f"  Annual repayment capacity: Rs {rc.get('annual_repayment_capacity', 0):,.0f}\n"
+                f"  DSCR: {rc.get('debt_service_coverage_ratio', rc.get('dscr', 'N/A'))}\n"
                 f"  Emergency reserve: Rs {rc.get('emergency_reserve', 0):,.0f}"
+            )
+
+        if self.active_loans:
+            loan_lines = []
+            total_outstanding = 0.0
+            for loan in self.active_loans:
+                principal = loan.get('principal', 0)
+                outstanding = loan.get('outstanding_balance', principal)
+                total_outstanding += outstanding
+                lender = loan.get('lender_name', 'Unknown')
+                source = loan.get('source_type', '')
+                status = loan.get('status', 'ACTIVE')
+                loan_lines.append(
+                    f"  - {lender} ({source}): Principal Rs {principal:,.0f}, "
+                    f"Outstanding Rs {outstanding:,.0f}, Status: {status}"
+                )
+            sections.append(
+                f"ACTIVE LOANS ({len(self.active_loans)} total, "
+                f"Total Outstanding: Rs {total_outstanding:,.0f}):\n"
+                + "\n".join(loan_lines)
             )
 
         if self.loan_exposure:
             le = self.loan_exposure
+            dti = le.get('dti_ratio', 0)
+            dti_str = f"{dti:.1%}" if isinstance(dti, (int, float)) else str(dti)
             sections.append(
-                f"DEBT EXPOSURE:\n"
+                f"DEBT EXPOSURE SUMMARY:\n"
                 f"  Total outstanding: Rs {le.get('total_outstanding', 0):,.0f}\n"
                 f"  Monthly obligations: Rs {le.get('monthly_obligations', 0):,.0f}\n"
-                f"  Debt-to-income ratio: {le.get('dti_ratio', 0):.1%}\n"
+                f"  Debt-to-income ratio: {dti_str}\n"
                 f"  Active loans: {le.get('active_loan_count', 0)}\n"
                 f"  Loan sources: {', '.join(s.get('source_type', '') for s in le.get('sources', []))}"
             )

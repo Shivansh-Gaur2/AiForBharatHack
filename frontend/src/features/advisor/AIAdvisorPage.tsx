@@ -10,6 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Send,
   Bot,
@@ -19,11 +20,12 @@ import {
   ArrowDown,
   Loader2,
   RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
-import { aiAdvisorApi } from "@/api";
+import { aiAdvisorApi, profileApi } from "@/api";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,6 +66,18 @@ export function AIAdvisorPage() {
   const [linkedProfile, setLinkedProfile] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch all profiles for the dropdown
+  const { data: profilesData, isLoading: profilesLoading } = useQuery({
+    queryKey: ["advisor-profiles-list"],
+    queryFn: () => profileApi.list({ limit: 100 }),
+  });
+  const profiles = profilesData?.items ?? [];
+
+  // Find the display name for the currently linked profile
+  const linkedProfileName = profiles.find(
+    (p) => p.profile_id === linkedProfile
+  )?.name;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -257,12 +271,26 @@ export function AIAdvisorPage() {
   // Link profile
   // ------------------------------------------------------------------
 
-  const handleLinkProfile = useCallback(() => {
-    if (!profileId.trim()) return;
-    setLinkedProfile(profileId.trim());
-    setMessages([]);
-    setConversationId(null);
-  }, [profileId]);
+  const handleLinkProfile = useCallback(
+    (id?: string) => {
+      const pid = id || profileId.trim();
+      if (!pid) return;
+      setProfileId(pid);
+      setLinkedProfile(pid);
+      setMessages([]);
+      setConversationId(null);
+    },
+    [profileId]
+  );
+
+  // Auto-select the first profile once they load
+  useEffect(() => {
+    if (profiles.length > 0 && !linkedProfile && !profileId) {
+      const first = profiles[0]!.profile_id;
+      setProfileId(first);
+      setLinkedProfile(first);
+    }
+  }, [profiles]);
 
   // ------------------------------------------------------------------
   // Key handler
@@ -295,30 +323,54 @@ export function AIAdvisorPage() {
               AI Credit Advisor{" "}
               {linkedProfile && (
                 <span className="text-brand-600">
-                  — Profile: {linkedProfile}
+                  — {linkedProfileName || linkedProfile}
                 </span>
               )}
             </p>
           </div>
         </div>
 
-        {/* Profile linker */}
+        {/* Profile selector */}
         <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Profile ID"
-            value={profileId}
-            onChange={(e) => setProfileId(e.target.value)}
-            className="w-40 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleLinkProfile}
-            disabled={!profileId.trim()}
-          >
-            Link
-          </Button>
+          {profilesLoading ? (
+            <span className="text-xs text-gray-400">Loading…</span>
+          ) : profiles.length > 0 ? (
+            <div className="relative">
+              <select
+                value={profileId}
+                onChange={(e) => handleLinkProfile(e.target.value)}
+                className="w-56 appearance-none rounded-lg border border-gray-300 bg-white px-3 py-1.5 pr-8 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="" disabled>
+                  Choose a borrower…
+                </option>
+                {profiles.map((p) => (
+                  <option key={p.profile_id} value={p.profile_id}>
+                    {p.name} — {p.location} ({p.occupation})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                placeholder="Profile ID"
+                value={profileId}
+                onChange={(e) => setProfileId(e.target.value)}
+                className="w-40 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleLinkProfile()}
+                disabled={!profileId.trim()}
+              >
+                Link
+              </Button>
+            </>
+          )}
           {conversationId && (
             <Button
               size="sm"

@@ -1,5 +1,6 @@
 import { AlertCircle, AlertTriangle, Info, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, Badge } from "@/components/ui";
 import { dashboardApi, type RecentAlert } from "@/api/dashboard";
 import { cn } from "@/lib/utils";
@@ -40,9 +41,9 @@ export function RecentAlerts() {
     <Card>
       <CardHeader className="mb-4">
         <CardTitle>Recent Alerts</CardTitle>
-        <a href="/alerts" className="text-sm font-medium text-brand-600 hover:text-brand-700">
+        <Link to="/alerts" className="text-sm font-medium text-brand-600 hover:text-brand-700">
           View all →
-        </a>
+        </Link>
       </CardHeader>
 
       {isLoading ? (

@@ -100,11 +100,26 @@ else:
     event_publisher = AsyncInMemoryEventPublisher()
     logger.info("Using AsyncInMemoryEventPublisher (memory mode or no SNS topic)")
 
+# Weather / Market risk provider for external risk scores
+weather_market_provider = None
+if settings.weather_api_key or settings.market_api_key:
+    from .infrastructure.http_providers import HttpWeatherMarketRiskProvider
+    weather_market_provider = HttpWeatherMarketRiskProvider(
+        weather_api_key=settings.weather_api_key,
+        market_api_key=settings.market_api_key,
+    )
+    logger.info("Using HttpWeatherMarketRiskProvider (weather=%s, market=%s)",
+                "configured" if settings.weather_api_key else "none",
+                "configured" if settings.market_api_key else "none")
+else:
+    logger.info("No WEATHER_API_KEY or MARKET_API_KEY — weather/market risk will be 0")
+
 risk_service = RiskAssessmentService(
     repo=repo,
     profile_provider=profile_provider,
     loan_provider=loan_provider,
     events=event_publisher,
+    weather_market_provider=weather_market_provider,
 )
 set_risk_service(risk_service)
 

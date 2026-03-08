@@ -114,7 +114,10 @@ else:
 # Loan provider — use HTTP adapter when URL is configured
 if settings.loan_service_url:
     from .infrastructure.external_data import HttpLoanDataProvider
-    loan_provider = HttpLoanDataProvider(settings.loan_service_url)
+    loan_provider = HttpLoanDataProvider(
+        settings.loan_service_url,
+        profile_base_url=settings.profile_service_url or "",
+    )
     logger.info("Using HttpLoanDataProvider → %s", settings.loan_service_url)
 else:
     loan_provider = StubLoanDataProvider()
