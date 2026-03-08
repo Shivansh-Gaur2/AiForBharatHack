@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import boto3
@@ -35,6 +36,7 @@ from .domain.services import ProfileService
 from .infrastructure.dynamodb_repo import DynamoDBProfileRepository
 from .infrastructure.memory_repo import InMemoryProfileRepository
 from .infrastructure.sqs_events import create_profile_event_publisher
+from .seed import seed_if_empty
 
 # ---------------------------------------------------------------------------
 # Settings & Logging
@@ -51,12 +53,26 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # FastAPI App
 # ---------------------------------------------------------------------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Run startup tasks before serving requests."""
+    if settings.auto_seed:
+        from .api.routes import get_profile_service
+        try:
+            svc = get_profile_service()
+            seed_if_empty(svc)
+        except Exception as exc:
+            logger.warning("Startup seed skipped: %s", exc)
+    yield
+
+
 app = FastAPI(
     title="Rural Credit Advisor — Profile Service",
     description="Manages comprehensive borrower profiles for rural credit advisory.",
     version="1.0.0",
     docs_url="/docs",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # ---------------------------------------------------------------------------
@@ -179,4 +195,4 @@ def health():
 # ---------------------------------------------------------------------------
 # Lambda handler (via Mangum)
 # ---------------------------------------------------------------------------
-handler = Mangum(app, lifespan="off")
+handler = Mangum(app, lifespan="auto")

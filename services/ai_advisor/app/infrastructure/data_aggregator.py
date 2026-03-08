@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any
 
 import httpx
@@ -31,6 +32,7 @@ class HttpDataAggregator:
 
     Each service call is individually resilient — if one service is down,
     the aggregator still returns partial data from the rest.
+    Uses a persistent AsyncClient for connection pooling.
     """
 
     def __init__(
@@ -48,6 +50,12 @@ class HttpDataAggregator:
         self._loan_url = loan_url
         self._alert_url = alert_url
         self._guidance_url = guidance_url
+
+        # Persistent client — reuses TCP connections across calls
+        self._client = httpx.AsyncClient(
+            timeout=_TIMEOUT,
+            limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+        )
 
         # Per-service circuit breakers
         self._breakers = {
@@ -145,28 +153,56 @@ class HttpDataAggregator:
 
     async def build_full_context(self, profile_id: ProfileId) -> BorrowerContext:
         """Fetch from all services in parallel and assemble a BorrowerContext."""
+        return await self.build_partial_context(profile_id, services=None)
+
+    async def build_partial_context(
+        self,
+        profile_id: ProfileId,
+        services: set[str] | None = None,
+    ) -> BorrowerContext:
+        """Fetch only the requested services and assemble a BorrowerContext.
+
+        Args:
+            profile_id: The borrower's profile ID.
+            services: Set of service names to fetch. ``None`` means all services.
+                      Valid keys: 'profile', 'risk', 'cashflow', 'loan', 'alert', 'guidance'.
+        """
+        fetch_all = services is None
         context = BorrowerContext(profile_id=profile_id)
+        unavailable: list[str] = []
 
-        # Fire all requests concurrently
-        results = await asyncio.gather(
-            self.fetch_profile(profile_id),
-            self.fetch_risk(profile_id),
-            self.fetch_cashflow(profile_id),
-            self.fetch_loans(profile_id),
-            self.fetch_alerts(profile_id),
-            self.fetch_guidance(profile_id),
-            return_exceptions=True,
-        )
+        # Build coroutine list in a fixed order so we can unpack results
+        _ALL = ["profile", "risk", "cashflow", "loan", "alert", "guidance"]
+        fetch_map = {
+            "profile":  lambda: self.fetch_profile(profile_id),
+            "risk":     lambda: self.fetch_risk(profile_id),
+            "cashflow": lambda: self.fetch_cashflow(profile_id),
+            "loan":     lambda: self.fetch_loans(profile_id),
+            "alert":    lambda: self.fetch_alerts(profile_id),
+            "guidance": lambda: self.fetch_guidance(profile_id),
+        }
+        active = [k for k in _ALL if fetch_all or k in (services or set())]
+        coros = [fetch_map[k]() for k in active]
 
-        # Unpack — each result is either data or an exception
-        profile_data, risk_data, cashflow_data, loan_data, alert_data, guidance_data = results
+        results = await asyncio.gather(*coros, return_exceptions=True)
+        result_map = dict(zip(active, results))
 
+        # --- Profile ---
+        profile_data = result_map.get("profile")
         if isinstance(profile_data, dict) and profile_data:
             context.profile_summary = self._normalize_profile(profile_data)
+        elif "profile" in active:
+            unavailable.append("profile")
 
+        # --- Risk ---
+        risk_data = result_map.get("risk")
         if isinstance(risk_data, dict) and risk_data:
             context.risk_assessment = risk_data
+        elif "risk" in active:
+            unavailable.append("risk")
 
+        # --- Cashflow ---
+        cashflow_data = result_map.get("cashflow")
         if isinstance(cashflow_data, dict):
             forecast = cashflow_data.get("forecast", {})
             capacity = cashflow_data.get("capacity", {})
@@ -174,7 +210,13 @@ class HttpDataAggregator:
                 context.cashflow_forecast = self._normalize_forecast(forecast)
             if capacity:
                 context.repayment_capacity = capacity
+            if not forecast and not capacity and "cashflow" in active:
+                unavailable.append("cashflow")
+        elif "cashflow" in active:
+            unavailable.append("cashflow")
 
+        # --- Loans ---
+        loan_data = result_map.get("loan")
         if isinstance(loan_data, dict):
             exposure = loan_data.get("exposure", {})
             loans = loan_data.get("loans", {})
@@ -182,16 +224,31 @@ class HttpDataAggregator:
                 context.loan_exposure = exposure
             if isinstance(loans, dict) and loans.get("loans"):
                 context.active_loans = loans["loans"][:10]
+            if not exposure and not (isinstance(loans, dict) and loans.get("loans")) and "loan" in active:
+                unavailable.append("loan")
+        elif "loan" in active:
+            unavailable.append("loan")
 
+        # --- Alerts ---
+        alert_data = result_map.get("alert")
         if isinstance(alert_data, list):
             context.active_alerts = alert_data[:5]
+        elif "alert" in active:
+            unavailable.append("alert")
 
+        # --- Guidance ---
+        guidance_data = result_map.get("guidance")
         if isinstance(guidance_data, list):
             context.active_guidance = guidance_data[:3]
+        elif "guidance" in active:
+            unavailable.append("guidance")
+
+        context.unavailable_services = unavailable
+        context.context_fetched_at = time.time()
 
         logger.info(
-            "Built context for %s: has_data=%s",
-            profile_id, context.has_data(),
+            "Built context for %s: has_data=%s, fetched=%s, unavailable=%s",
+            profile_id, context.has_data(), active, unavailable,
         )
         return context
 
@@ -200,30 +257,29 @@ class HttpDataAggregator:
     # ------------------------------------------------------------------
 
     async def _safe_get(self, service: str, url: str) -> dict[str, Any]:
-        """HTTP GET with circuit breaker and error handling."""
+        """HTTP GET with circuit breaker and error handling. Reuses persistent client."""
         breaker = self._breakers.get(service)
-        if breaker and not breaker.allow_request():
+        if breaker and not breaker.is_call_permitted():
             logger.debug("Circuit open for %s — skipping %s", service, url)
             return {}
 
         try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-                resp = await client.get(url)
-                if resp.status_code == 200:
-                    if breaker:
-                        breaker.record_success()
-                    return resp.json()
-                elif resp.status_code == 404:
-                    # Not found is not a failure — the profile might not exist yet
-                    logger.debug("%s returned 404 for %s", service, url)
-                    return {}
-                else:
-                    logger.warning(
-                        "%s returned %d for %s", service, resp.status_code, url,
-                    )
-                    if breaker:
-                        breaker.record_failure()
-                    return {}
+            resp = await self._client.get(url)
+            if resp.status_code == 200:
+                if breaker:
+                    breaker.record_success()
+                return resp.json()
+            elif resp.status_code == 404:
+                # Not found is not a failure — the profile might not exist yet
+                logger.debug("%s returned 404 for %s", service, url)
+                return {}
+            else:
+                logger.warning(
+                    "%s returned %d for %s", service, resp.status_code, url,
+                )
+                if breaker:
+                    breaker.record_failure()
+                return {}
         except httpx.TimeoutException:
             logger.warning("Timeout calling %s: %s", service, url)
             if breaker:
@@ -236,68 +292,115 @@ class HttpDataAggregator:
             return {}
 
     def _normalize_profile(self, raw: dict) -> dict[str, Any]:
-        """Extract key profile fields into a flat summary dict."""
-        personal = raw.get("personal_info", {})
-        livelihood = raw.get("livelihood_info", {})
-        land = livelihood.get("land_holding", {})
-        crops = livelihood.get("crop_patterns", [])
+        """Extract key profile fields into a flat summary dict.
 
-        income_records = raw.get("income_records", [])
-        expense_records = raw.get("expense_records", [])
+        Maps the Profile API's nested structure to a flat context dict.
+        Field names here match what the Profile Service actually returns.
+        """
+        personal = raw.get("personal_info", {}) or {}
+        livelihood = raw.get("livelihood_info", {}) or {}
+        # Profile API returns "land_details" (request-schema key); domain may return "land_holding"
+        land = livelihood.get("land_details", livelihood.get("land_holding", {})) or {}
+        # Profile API returns "crops"; domain may return "crop_patterns"
+        crops = livelihood.get("crops", livelihood.get("crop_patterns", [])) or []
+        livestock_list = livelihood.get("livestock", []) or []
 
-        avg_income = 0.0
-        if income_records:
-            avg_income = sum(r.get("amount", 0) for r in income_records) / len(income_records)
+        # Build a human-readable livestock summary from the list
+        livestock_parts = [
+            f"{l.get('count', 0)} {l.get('animal_type', '')}"
+            for l in livestock_list
+            if l.get("count") and l.get("animal_type")
+        ]
+        livestock_summary = ", ".join(livestock_parts) if livestock_parts else "None"
 
-        avg_expense = 0.0
-        if expense_records:
-            avg_expense = sum(r.get("amount", 0) for r in expense_records) / len(expense_records)
+        income_records = raw.get("income_records", []) or []
+        expense_records = raw.get("expense_records", []) or []
 
+        # Average over the most recent 12 months to avoid stale data skewing figures
+        def _avg_last_12(records: list) -> float:
+            if not records:
+                return 0.0
+            sorted_recs = sorted(
+                records,
+                key=lambda r: (r.get("year", 0), r.get("month", 0)),
+                reverse=True,
+            )
+            recent = sorted_recs[:12]
+            return sum(r.get("amount", 0) for r in recent) / len(recent)
+
+        dependents = personal.get("dependents", 0)
         return {
-            "name": personal.get("full_name", ""),
+            "name": personal.get("name", ""),           # correct key (not full_name)
+            "age": personal.get("age", "N/A"),
             "occupation": livelihood.get("primary_occupation", ""),
-            "region": personal.get("state", personal.get("district", "")),
-            "land_holding_acres": land.get("total_acres", 0),
-            "land_type": land.get("ownership_type", ""),
-            "household_size": personal.get("household_size", 0),
-            "avg_monthly_income": avg_income,
-            "avg_monthly_expense": avg_expense,
+            "secondary_occupations": livelihood.get("secondary_occupations", []),
+            "region": (
+                personal.get("location")
+                or personal.get("state")
+                or personal.get("district", "")
+            ),
+            "state": personal.get("state", ""),
+            "district": personal.get("district", ""),
+            "land_holding_acres": (
+                land.get("total_acres")
+                or land.get("owned_acres", 0) + land.get("leased_acres", 0)
+            ),
+            "land_type": land.get("ownership_type", "leased" if land.get("leased_acres", 0) > 0 else "owned"),
+            "household_size": dependents + 1,           # dependents + the borrower themselves
+            "dependents": dependents,
+            "avg_monthly_income": _avg_last_12(income_records),
+            "avg_monthly_expense": _avg_last_12(expense_records),
             "crops": [c.get("crop_name", "") for c in crops if c.get("crop_name")],
-            "livestock_summary": livelihood.get("livestock_summary", "None"),
-            "dependents": personal.get("dependents", 0),
+            "livestock_summary": livestock_summary,     # built from list, not missing field
         }
 
     def _normalize_forecast(self, raw: dict) -> dict[str, Any]:
-        """Extract key forecast fields."""
-        projections = raw.get("monthly_projections", [])
-        if not projections:
-            return raw
+        """Extract key forecast fields into a standard shape.
 
-        inflows = [p.get("projected_inflow", 0) for p in projections]
-        outflows = [p.get("projected_outflow", 0) for p in projections]
-
-        avg_in = sum(inflows) / len(inflows) if inflows else 0
-        avg_out = sum(outflows) / len(outflows) if outflows else 0
-
-        # Find peak and lean months
-        surpluses = [(p.get("month", 0), p.get("projected_inflow", 0) - p.get("projected_outflow", 0))
-                     for p in projections]
-        surpluses.sort(key=lambda x: x[1], reverse=True)
-        peak_months = [s[0] for s in surpluses[:3]]
-        lean_months = [s[0] for s in surpluses[-3:]]
+        Always returns keys that to_prompt_context() expects:
+        period, avg_inflow, avg_outflow, peak_months, lean_months.
+        Falls back to top-level keys when monthly_projections is absent
+        rather than returning the raw dict with mismatched keys.
+        """
+        projections = raw.get("monthly_projections", []) or []
 
         month_names = [
             "", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
         ]
 
+        if projections:
+            inflows = [p.get("projected_inflow", 0) for p in projections]
+            outflows = [p.get("projected_outflow", 0) for p in projections]
+            avg_in = sum(inflows) / len(inflows)
+            avg_out = sum(outflows) / len(outflows)
+
+            surpluses = [
+                (p.get("month", 0), p.get("projected_inflow", 0) - p.get("projected_outflow", 0))
+                for p in projections
+            ]
+            surpluses.sort(key=lambda x: x[1], reverse=True)
+            peak = [s[0] for s in surpluses[:3]]
+            lean = [s[0] for s in surpluses[-3:]]
+
+            return {
+                "period": raw.get("forecast_period", raw.get("period", "")),
+                "avg_inflow": avg_in,
+                "avg_outflow": avg_out,
+                "peak_months": ", ".join(month_names[m] for m in peak if 1 <= m <= 12),
+                "lean_months": ", ".join(month_names[m] for m in lean if 1 <= m <= 12),
+                "projection_count": len(projections),
+            }
+
+        # No projections — map whatever top-level aggregate keys exist
+        # so the prompt context still gets real values instead of 'N/A'
         return {
-            "period": raw.get("forecast_period", ""),
-            "avg_inflow": avg_in,
-            "avg_outflow": avg_out,
-            "peak_months": ", ".join(month_names[m] for m in peak_months if 1 <= m <= 12),
-            "lean_months": ", ".join(month_names[m] for m in lean_months if 1 <= m <= 12),
-            "projection_count": len(projections),
+            "period": raw.get("forecast_period", raw.get("period", "N/A")),
+            "avg_inflow": raw.get("avg_inflow", raw.get("total_inflow", 0)),
+            "avg_outflow": raw.get("avg_outflow", raw.get("total_outflow", 0)),
+            "peak_months": raw.get("peak_months", "N/A"),
+            "lean_months": raw.get("lean_months", "N/A"),
+            "projection_count": 0,
         }
 
 
@@ -378,13 +481,23 @@ class StubDataAggregator:
         alerts = await self.fetch_alerts(profile_id)
         guidance = await self.fetch_guidance(profile_id)
 
-        return BorrowerContext(
+        context = BorrowerContext(
             profile_id=profile_id,
-            profile_summary=profile,
-            risk_assessment=risk,
-            cashflow_forecast=cashflow.get("forecast"),
-            repayment_capacity=cashflow.get("capacity"),
-            loan_exposure=loans.get("exposure"),
+            profile_summary=profile or None,
+            risk_assessment=risk or None,
+            cashflow_forecast=cashflow.get("forecast") if cashflow else None,
+            repayment_capacity=cashflow.get("capacity") if cashflow else None,
+            loan_exposure=loans.get("exposure") if loans else None,
             active_alerts=alerts,
             active_guidance=guidance,
+            context_fetched_at=time.time(),
         )
+        return context
+
+    async def build_partial_context(
+        self,
+        profile_id: ProfileId,
+        services: set[str] | None = None,
+    ) -> BorrowerContext:
+        """Stub ignores the services filter and always returns full mock data."""
+        return await self.build_full_context(profile_id)

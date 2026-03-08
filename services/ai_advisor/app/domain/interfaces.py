@@ -76,6 +76,14 @@ class DataAggregator(Protocol):
         """Aggregate all services into a single BorrowerContext."""
         ...
 
+    async def build_partial_context(
+        self,
+        profile_id: ProfileId,
+        services: set[str] | None = None,
+    ) -> BorrowerContext:
+        """Aggregate only the specified services (None = all) into a BorrowerContext."""
+        ...
+
 
 # ---------------------------------------------------------------------------
 # Conversation Repository Port
