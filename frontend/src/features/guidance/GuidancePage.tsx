@@ -297,7 +297,11 @@ function GuidanceSummaryRow({
       </div>
       <div className="mt-1 flex items-center justify-between">
         <span className="text-xs text-gray-500">
-          {formatCurrency(guidance.requested_amount)}
+          {guidance.requested_amount
+            ? formatCurrency(guidance.requested_amount)
+            : guidance.recommended_amount
+              ? `Up to ${formatCurrency(guidance.recommended_amount.max_amount)}`
+              : "–"}
         </span>
         <span className="text-xs text-gray-400">
           {formatDate(guidance.created_at)}
@@ -336,11 +340,13 @@ function GuidanceDetail({ guidance }: { guidance: CreditGuidance }) {
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Requested"
-          value={formatCurrency(guidance.requested_amount)}
-          icon={<IndianRupee className="h-5 w-5" />}
-        />
+        {guidance.requested_amount != null && (
+          <StatCard
+            label="Requested"
+            value={formatCurrency(guidance.requested_amount)}
+            icon={<IndianRupee className="h-5 w-5" />}
+          />
+        )}
         <StatCard
           label="Recommended Range"
           value={`${formatCurrency(guidance.recommended_amount.min_amount)} – ${formatCurrency(guidance.recommended_amount.max_amount)}`}
@@ -476,10 +482,15 @@ function GuidanceDetail({ guidance }: { guidance: CreditGuidance }) {
           <div className="space-y-4">
             {guidance.alternative_options.map((alt, i) => (
               <div key={i} className="rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge label={alt.option_type} />
+                  {alt.estimated_amount > 0 && (
+                    <span className="text-sm text-gray-500">
+                      {formatCurrency(alt.estimated_amount)}
+                    </span>
+                  )}
+                </div>
                 <p className="font-medium text-gray-900">{alt.description}</p>
-                <p className="mt-1 text-sm text-gray-500">
-                  {formatCurrency(alt.estimated_amount)} · {alt.timing}
-                </p>
                 <div className="mt-3 grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs font-medium text-green-700">Advantages</p>

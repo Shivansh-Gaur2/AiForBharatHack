@@ -157,18 +157,20 @@ class CashFlowService:
         # 2) Fetch external adjustment factors
         profile_info = await self._profile.get_profile_summary(profile_id)
         district = profile_info.get("district", "unknown")
-        primary_crop = profile_info.get("primary_crop", "rice")
+        state = profile_info.get("state", "unknown")
+        primary_crop = profile_info.get("primary_crop", "unknown")
 
         weather_adj = await self._weather.get_weather_adjustment(
             district=district, season="current",
         )
+        # Agmarknet API uses state-level filtering, so pass state (not district)
         market_adj = await self._market.get_market_adjustment(
-            crop=primary_crop, district=district,
+            crop=primary_crop, district=state,
         )
 
         # 3) Fetch existing obligations from Loan Tracker
         monthly_obligations = await self._loan.get_monthly_obligations(profile_id)
-        household_expense = profile_info.get("household_monthly_expense", 5000.0)
+        household_expense = profile_info.get("household_monthly_expense", 0.0)
 
         # 4) Build forecast
         forecast = build_forecast(

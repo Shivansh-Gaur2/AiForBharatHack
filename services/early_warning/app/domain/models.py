@@ -497,8 +497,7 @@ def _alert_title(alert_type: AlertType, severity: AlertSeverity) -> str:
         AlertType.WEATHER_RISK: "Weather-Related Income Risk",
         AlertType.MARKET_RISK: "Market Price Impact on Income",
     }
-    prefix = "⚠\uFE0F " if severity == AlertSeverity.WARNING else "\U0001F6A8 " if severity == AlertSeverity.CRITICAL else "i "
-    return prefix + titles.get(alert_type, "Financial Alert")
+    return titles.get(alert_type, "Financial Alert")
 
 
 def _alert_description(
@@ -524,7 +523,7 @@ def _alert_description(
     if stress.declining_surplus:
         parts.append("Monthly surplus is declining.")
 
-    return " ".join(parts) if parts else f"Financial monitoring alert (severity: {severity})."
+    return " ".join(parts) if parts else f"Routine financial monitoring check completed. No critical issues found."
 
 
 def _build_risk_factor_snapshots(

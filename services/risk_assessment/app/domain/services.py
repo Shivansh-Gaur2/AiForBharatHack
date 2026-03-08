@@ -134,11 +134,13 @@ class RiskAssessmentService:
         profile_provider: ProfileDataProvider,
         loan_provider: LoanDataProvider,
         events: AsyncEventPublisher,
+        weather_market_provider=None,
     ) -> None:
         self._repo = repo
         self._profiles = profile_provider
         self._loans = loan_provider
         self._events = events
+        self._weather_market = weather_market_provider
 
     async def assess_risk(self, profile_id: ProfileId) -> RiskAssessment:
         """Generate a full risk assessment (Property 8).
@@ -174,14 +176,14 @@ class RiskAssessmentService:
             total_outstanding=exposure.get("total_outstanding", 0.0),
             active_loan_count=exposure.get("active_loan_count", 0),
             credit_utilisation=exposure.get("credit_utilisation", 0.0),
-            on_time_repayment_ratio=repayment.get("on_time_ratio", 1.0),
+            on_time_repayment_ratio=repayment.get("on_time_ratio", 0.0),
             has_defaults=repayment.get("has_defaults", False),
             seasonal_variance=volatility.get("seasonal_variance", 0.0),
-            crop_diversification_index=personal.get("crop_diversification_index", 0.5),
-            weather_risk_score=0.0,      # Phase 3: external data
-            market_risk_score=0.0,       # Phase 3: external data
+            crop_diversification_index=personal.get("crop_diversification_index", 0.0),
+            weather_risk_score=await self._get_weather_risk(personal),
+            market_risk_score=await self._get_market_risk(personal),
             dependents=personal.get("dependents", 0),
-            age=personal.get("age", 30),
+            age=personal.get("age", 0),
             has_irrigation=personal.get("has_irrigation", False),
         )
 
@@ -219,6 +221,37 @@ class RiskAssessmentService:
         ))
 
         return assessment
+
+    # ------------------------------------------------------------------
+    # Internal helpers for external risk data
+    # ------------------------------------------------------------------
+
+    async def _get_weather_risk(self, personal: dict) -> float:
+        """Fetch weather risk score from external API via provider."""
+        if self._weather_market is None:
+            return 0.0
+        try:
+            district = personal.get("district", "unknown")
+            if district == "unknown":
+                return 0.0
+            return await self._weather_market.get_weather_risk(district)
+        except Exception:
+            logger.warning("Weather risk lookup failed", exc_info=True)
+            return 0.0
+
+    async def _get_market_risk(self, personal: dict) -> float:
+        """Fetch market risk score from external API via provider."""
+        if self._weather_market is None:
+            return 0.0
+        try:
+            crop = personal.get("primary_crop", "unknown")
+            state = personal.get("state", "unknown")
+            if crop == "unknown":
+                return 0.0
+            return await self._weather_market.get_market_risk(crop, state)
+        except Exception:
+            logger.warning("Market risk lookup failed", exc_info=True)
+            return 0.0
 
     async def get_latest_assessment(
         self, profile_id: ProfileId,

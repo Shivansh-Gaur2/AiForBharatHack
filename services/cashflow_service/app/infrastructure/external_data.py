@@ -165,6 +165,11 @@ class HttpMarketDataProvider:
             return 1.0
 
         try:
+            # Derive state from the district parameter.  Agmarknet's API
+            # filters by state, so callers should pass the borrower's actual
+            # district/state.  We accept either "District" or "State" directly;
+            # the cashflow forecast layer passes the profile's state.
+            filter_state = district if district and district != "unknown" else "Gujarat"
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 response = await client.get(
                     f"{_AGMARKNET_BASE}/{_AGMARKNET_RESOURCE}",
@@ -173,7 +178,7 @@ class HttpMarketDataProvider:
                         "format": "json",
                         "limit": "5",
                         "filters[commodity]": crop.lower(),
-                        "filters[state]": "Gujarat",  # default state; real use passes region
+                        "filters[state]": filter_state,
                     },
                 )
                 response.raise_for_status()
@@ -234,6 +239,12 @@ class HttpProfileDataProvider:
         self._timeout = timeout
 
     async def get_profile_summary(self, profile_id: str) -> dict:
+        """Fetch real profile data — no fabricated fallbacks.
+
+        Returns the actual profile fields from the Profile Service.
+        On failure, returns a dict with ``_error`` flag so callers know
+        data is unavailable rather than silently using fake numbers.
+        """
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 response = await client.get(
@@ -241,37 +252,66 @@ class HttpProfileDataProvider:
                 )
                 response.raise_for_status()
                 data = response.json()
+
+            personal = data.get("personal_info", {})
+            livelihood = data.get("livelihood_info", {})
+            crops = livelihood.get("crop_patterns", [])
+            primary_crop = crops[0]["crop_name"] if crops else "unknown"
+
             return {
-                "district": data.get("district", "unknown"),
-                "primary_crop": data.get("primary_crop", "rice"),
-                "occupation": data.get("occupation_type", "FARMER"),
-                "household_monthly_expense": data.get("household_monthly_expense", 5000.0),
-                "annual_income": data.get("annual_income", 100000.0),
+                "district": personal.get("district", "unknown"),
+                "state": personal.get("state", "unknown"),
+                "primary_crop": primary_crop,
+                "occupation": livelihood.get("primary_occupation", "FARMER"),
+                "household_monthly_expense": data.get("average_monthly_expense", 0.0),
+                "annual_income": data.get("estimated_annual_income", 0.0),
             }
         except (httpx.HTTPError, KeyError) as exc:
             logger.warning("Profile service call failed: %s", exc)
             return {
+                "_error": True,
                 "district": "unknown",
-                "primary_crop": "rice",
-                "occupation": "FARMER",
-                "household_monthly_expense": 5000.0,
-                "annual_income": 100000.0,
+                "state": "unknown",
+                "primary_crop": "unknown",
+                "occupation": "unknown",
+                "household_monthly_expense": 0.0,
+                "annual_income": 0.0,
             }
 
 
 class HttpLoanDataProvider:
     """Fetches loan obligation data from the Loan Tracker via HTTP."""
 
-    def __init__(self, base_url: str, timeout: float = 10.0) -> None:
+    def __init__(self, base_url: str, profile_base_url: str | None = None, timeout: float = 10.0) -> None:
         self._base_url = base_url.rstrip("/")
+        self._profile_base_url = (profile_base_url or "").rstrip("/")
         self._timeout = timeout
 
+    async def _fetch_annual_income(self, profile_id: str) -> float:
+        """Get real annual income from the profile service."""
+        if not self._profile_base_url:
+            logger.warning("No profile base URL configured for loan data provider")
+            return 0.0
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                r = await client.get(f"{self._profile_base_url}/api/v1/profiles/{profile_id}")
+                r.raise_for_status()
+                return float(r.json().get("estimated_annual_income", 0.0))
+        except Exception as exc:
+            logger.warning("Failed to fetch annual income for %s: %s", profile_id, exc)
+            return 0.0
+
     async def get_monthly_obligations(self, profile_id: str) -> float:
+        # Fetch real annual income from Profile Service (not hardcoded)
+        annual_income = await self._fetch_annual_income(profile_id)
+        if annual_income <= 0:
+            logger.warning("No annual income found for %s; exposure DTI will be 0", profile_id)
+            annual_income = 1.0  # avoid division-by-zero in loan tracker
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 response = await client.get(
                     f"{self._base_url}/api/v1/loans/borrower/{profile_id}/exposure",
-                    params={"annual_income": 100000},  # needed for DTI but we just want obligations
+                    params={"annual_income": annual_income},
                 )
                 response.raise_for_status()
                 data = response.json()

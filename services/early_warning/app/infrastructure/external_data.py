@@ -46,18 +46,18 @@ class HttpRiskDataProvider:
 
     async def get_risk_score(self, profile_id: str) -> float:
         if not self._circuit.is_call_permitted():
-            return 500.0  # neutral default
+            return 0.0  # no data available
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(f"{self._base_url}/api/v1/risk/profile/{profile_id}")
                 if r.status_code == 200:
                     self._circuit.record_success()
-                    return float(r.json().get("risk_score", 500))
+                    return float(r.json().get("risk_score", 0))
                 self._circuit.record_failure()
-                return 500.0
+                return 0.0
         except Exception:
             self._circuit.record_failure()
-            return 500.0
+            return 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +119,7 @@ class HttpLoanDataProvider:
 
     async def get_debt_exposure(self, profile_id: str) -> dict:
         if not self._circuit.is_call_permitted():
-            return {"debt_to_income_ratio": 0, "monthly_obligations": 0}
+            return {"debt_to_income_ratio": 0, "monthly_obligations": 0, "_error": True}
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(f"{self._base_url}/api/v1/loans/borrower/{profile_id}/exposure")
@@ -127,10 +127,10 @@ class HttpLoanDataProvider:
                     self._circuit.record_success()
                     return r.json()
                 self._circuit.record_failure()
-                return {"debt_to_income_ratio": 0, "monthly_obligations": 0}
+                return {"debt_to_income_ratio": 0, "monthly_obligations": 0, "_error": True}
         except Exception:
             self._circuit.record_failure()
-            return {"debt_to_income_ratio": 0, "monthly_obligations": 0}
+            return {"debt_to_income_ratio": 0, "monthly_obligations": 0, "_error": True}
 
     async def get_repayment_stats(self, profile_id: str) -> dict:
         if not self._circuit.is_call_permitted():
@@ -162,10 +162,10 @@ class HttpLoanDataProvider:
                         "on_time_ratio": on_time_ratio,
                     }
                 self._circuit.record_failure()
-                return {"missed_payments": 0, "days_overdue_avg": 0, "on_time_ratio": 1.0}
+                return {"missed_payments": 0, "days_overdue_avg": 0, "on_time_ratio": 0.0, "_error": True}
         except Exception:
             self._circuit.record_failure()
-            return {"missed_payments": 0, "days_overdue_avg": 0, "on_time_ratio": 1.0}
+            return {"missed_payments": 0, "days_overdue_avg": 0, "on_time_ratio": 0.0, "_error": True}
 
 
 # ---------------------------------------------------------------------------
@@ -181,25 +181,50 @@ class HttpProfileDataProvider:
     async def get_actual_incomes(
         self, profile_id: str,
     ) -> list[tuple[int, int, float]]:
-        # In production, this would call the profile service for income records
-        # For now, return empty — the direct API bypasses this
-        return []
+        """Fetch actual income records from the Profile Service.
 
-    async def get_household_expense(self, profile_id: str) -> float:
+        Returns a list of (month, year, amount) tuples.
+        """
         if not self._circuit.is_call_permitted():
-            return 8000.0
+            logger.warning("Circuit open for profile-service — returning empty incomes")
+            return []
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(f"{self._base_url}/api/v1/profiles/{profile_id}")
                 if r.status_code == 200:
                     self._circuit.record_success()
                     data = r.json()
-                    return float(data.get("monthly_household_expense", 8000))
+                    income_records = data.get("income_records", [])
+                    return [
+                        (rec["month"], rec["year"], float(rec["amount"]))
+                        for rec in income_records
+                        if "month" in rec and "year" in rec and "amount" in rec
+                    ]
+                if r.status_code == 404:
+                    self._circuit.record_success()
+                    return []
                 self._circuit.record_failure()
-                return 8000.0
+                return []
+        except Exception:
+            logger.exception("Failed to fetch actual incomes for %s", profile_id)
+            self._circuit.record_failure()
+            return []
+
+    async def get_household_expense(self, profile_id: str) -> float:
+        if not self._circuit.is_call_permitted():
+            return 0.0
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(f"{self._base_url}/api/v1/profiles/{profile_id}")
+                if r.status_code == 200:
+                    self._circuit.record_success()
+                    data = r.json()
+                    return float(data.get("average_monthly_expense", 0))
+                self._circuit.record_failure()
+                return 0.0
         except Exception:
             self._circuit.record_failure()
-            return 8000.0
+            return 0.0
 
     async def get_phone_number(self, profile_id: str) -> str | None:
         if not self._circuit.is_call_permitted():

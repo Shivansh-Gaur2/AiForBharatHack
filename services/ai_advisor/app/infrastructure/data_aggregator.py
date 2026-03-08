@@ -110,23 +110,14 @@ class HttpDataAggregator:
         if not self._loan_url:
             return {}
 
-        # Fetch both loan list and exposure
-        loans, exposure = await asyncio.gather(
-            self._safe_get(
-                "loan",
-                f"{self._loan_url}/api/v1/loans/borrower/{profile_id}",
-            ),
-            self._safe_get(
-                "loan",
-                f"{self._loan_url}/api/v1/loans/borrower/{profile_id}/exposure",
-            ),
-            return_exceptions=True,
+        # Fetch loan list (exposure needs annual_income which we may not have yet)
+        loans = await self._safe_get(
+            "loan",
+            f"{self._loan_url}/api/v1/loans/borrower/{profile_id}",
         )
         result: dict[str, Any] = {}
         if isinstance(loans, dict):
             result["loans"] = loans
-        if isinstance(exposure, dict):
-            result["exposure"] = exposure
         return result
 
     async def fetch_alerts(self, profile_id: ProfileId) -> list[dict[str, Any]]:
@@ -218,13 +209,27 @@ class HttpDataAggregator:
         # --- Loans ---
         loan_data = result_map.get("loan")
         if isinstance(loan_data, dict):
-            exposure = loan_data.get("exposure", {})
             loans = loan_data.get("loans", {})
+            exposure = loan_data.get("exposure", {})
+            if isinstance(loans, dict):
+                loan_items = loans.get("items", loans.get("loans", []))
+                if loan_items:
+                    context.active_loans = loan_items[:10]
+                    # Build exposure summary from the loan list if not pre-computed
+                    if not exposure:
+                        total_outstanding = sum(l.get("outstanding_balance", 0) for l in loan_items)
+                        monthly_obligations = sum(l.get("monthly_obligation", 0) for l in loan_items)
+                        active_count = len([l for l in loan_items if l.get("status") == "ACTIVE"])
+                        sources = list({l.get("source_type", "UNKNOWN") for l in loan_items})
+                        exposure = {
+                            "total_outstanding": total_outstanding,
+                            "monthly_obligations": monthly_obligations,
+                            "active_loan_count": active_count,
+                            "sources": [{"source_type": s} for s in sources],
+                        }
             if exposure:
                 context.loan_exposure = exposure
-            if isinstance(loans, dict) and loans.get("loans"):
-                context.active_loans = loans["loans"][:10]
-            if not exposure and not (isinstance(loans, dict) and loans.get("loans")) and "loan" in active:
+            if not context.loan_exposure and not context.active_loans and "loan" in active:
                 unavailable.append("loan")
         elif "loan" in active:
             unavailable.append("loan")

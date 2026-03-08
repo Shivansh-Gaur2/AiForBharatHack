@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertCircle,
+  AlertTriangle,
   Bell,
   CheckCircle,
   ChevronUp,
-  Search,
+  Info,
   Play,
   User,
 } from "lucide-react";
@@ -18,7 +20,7 @@ import {
   AlertBanner,
   EmptyState,
 } from "@/components/ui";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatEnum } from "@/lib/utils";
 import { ALERT_COLORS } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 import type { Alert } from "@/types";
@@ -84,7 +86,7 @@ export function AlertsPage() {
   }
 
   const alerts =
-    tab === "active" ? activeAlerts?.alerts : allAlerts?.alerts;
+    tab === "active" ? activeAlerts?.items : allAlerts?.items;
   const isLoading = tab === "active" ? loadingActive : loadingAll;
 
   return (
@@ -212,6 +214,15 @@ interface AlertCardProps {
 function AlertCard({ alert, onAcknowledge, onResolve }: AlertCardProps) {
   const [expanded, setExpanded] = useState(false);
 
+  const severityIcon =
+    alert.severity === "CRITICAL" ? (
+      <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+    ) : alert.severity === "WARNING" ? (
+      <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
+    ) : (
+      <Info className="h-5 w-5 text-blue-500 flex-shrink-0" />
+    );
+
   return (
     <Card
       className={cn(
@@ -224,28 +235,34 @@ function AlertCard({ alert, onAcknowledge, onResolve }: AlertCardProps) {
       )}
     >
       <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge
-              label={alert.severity}
-              colorClass={ALERT_COLORS[alert.severity]}
-            />
-            <Badge label={alert.alert_type} />
-            <Badge
-              label={alert.status}
-              colorClass={
-                alert.status === "RESOLVED"
-                  ? "bg-green-100 text-green-700"
-                  : alert.status === "ACKNOWLEDGED"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-gray-100 text-gray-700"
-              }
-            />
+        <div className="flex items-start gap-3 flex-1">
+          <div className="mt-0.5">{severityIcon}</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge
+                label={alert.severity}
+                colorClass={ALERT_COLORS[alert.severity]}
+              />
+              <Badge label={alert.alert_type} />
+              <Badge
+                label={alert.status}
+                colorClass={
+                  alert.status === "RESOLVED"
+                    ? "bg-green-100 text-green-700"
+                    : alert.status === "ACKNOWLEDGED"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-100 text-gray-700"
+                }
+              />
+            </div>
+            <p className="mt-2 font-medium text-sm text-gray-900">{alert.title}</p>
+            {alert.description && (
+              <p className="mt-1 text-sm text-gray-600">{alert.description}</p>
+            )}
+            <p className="mt-1 text-xs text-gray-400">
+              {formatDate(alert.created_at)}
+            </p>
           </div>
-          <p className="mt-2 text-sm text-gray-700">{alert.message}</p>
-          <p className="mt-1 text-xs text-gray-400">
-            {formatDate(alert.created_at)}
-          </p>
         </div>
 
         {alert.status === "ACTIVE" && (
@@ -288,24 +305,38 @@ function AlertCard({ alert, onAcknowledge, onResolve }: AlertCardProps) {
 
           {expanded && (
             <div className="mt-2 space-y-2">
-              {alert.recommendations.map((rec, i) => (
-                <div
-                  key={i}
-                  className="rounded-lg bg-gray-50 p-3 text-sm"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
-                      {rec.priority}
-                    </span>
-                    <span className="font-medium text-gray-900">
-                      {rec.action}
-                    </span>
+              {alert.recommendations.map((rec, i) => {
+                const priorityLabel = formatEnum(String(rec.priority));
+                const priorityColor =
+                  priorityLabel.toLowerCase().includes("immediate")
+                    ? "bg-red-100 text-red-700"
+                    : priorityLabel.toLowerCase().includes("short")
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-blue-100 text-blue-700";
+                return (
+                  <div
+                    key={i}
+                    className="rounded-lg bg-gray-50 p-3 text-sm"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                          priorityColor,
+                        )}
+                      >
+                        {priorityLabel}
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        {rec.action}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Impact: {rec.estimated_impact} · {rec.rationale}
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Impact: {rec.expected_impact} · Timeline: {rec.timeline}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

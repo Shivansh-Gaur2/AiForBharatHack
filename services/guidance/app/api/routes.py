@@ -243,6 +243,31 @@ async def recommend_amount(req: AmountRequest):
         raise HTTPException(status_code=422, detail=str(e)) from None
 
 
+@router.get("/profile/{profile_id}/history")
+async def get_guidance_history(
+    profile_id: str,
+    limit: int = Query(20, ge=1, le=100),
+):
+    """Get guidance history for a profile."""
+    svc = get_guidance_service()
+    items = await svc.get_guidance_history(profile_id, limit)
+    return {
+        "items": [_guidance_to_dto(g) for g in items],
+        "count": len(items),
+    }
+
+
+@router.get("/profile/{profile_id}/active")
+async def get_active_guidance(profile_id: str):
+    """Get active (non-expired) guidance for a profile."""
+    svc = get_guidance_service()
+    items = await svc.get_active_guidance(profile_id)
+    return {
+        "items": [_guidance_to_dto(g) for g in items],
+        "count": len(items),
+    }
+
+
 @router.get("/{guidance_id}", response_model=GuidanceDTO)
 async def get_guidance(guidance_id: str):
     """Get a specific guidance record."""
@@ -273,31 +298,6 @@ async def explain_guidance(guidance_id: str):
         ],
         confidence=guidance.explanation.confidence,
         caveats=guidance.explanation.caveats,
-    )
-
-
-@router.get("/profile/{profile_id}/history", response_model=GuidanceListDTO)
-async def get_guidance_history(
-    profile_id: str,
-    limit: int = Query(20, ge=1, le=100),
-):
-    """Get guidance history for a profile."""
-    svc = get_guidance_service()
-    items = await svc.get_guidance_history(profile_id, limit)
-    return GuidanceListDTO(
-        items=[_guidance_to_summary(g) for g in items],
-        count=len(items),
-    )
-
-
-@router.get("/profile/{profile_id}/active", response_model=GuidanceListDTO)
-async def get_active_guidance(profile_id: str):
-    """Get active (non-expired) guidance for a profile."""
-    svc = get_guidance_service()
-    items = await svc.get_active_guidance(profile_id)
-    return GuidanceListDTO(
-        items=[_guidance_to_summary(g) for g in items],
-        count=len(items),
     )
 
 

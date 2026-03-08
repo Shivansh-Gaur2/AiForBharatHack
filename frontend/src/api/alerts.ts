@@ -19,14 +19,14 @@ export const alertApi = {
 
   listByProfile: (profileId: string, limit?: number) =>
     httpClient
-      .get<{ alerts: Alert[] }>(`${BASE}/alerts/profile/${profileId}`, {
+      .get<{ items: Alert[]; count: number }>(`${BASE}/alerts/profile/${profileId}`, {
         params: limit ? { limit } : undefined,
       })
       .then((r) => r.data),
 
   getActiveAlerts: (profileId: string) =>
     httpClient
-      .get<{ alerts: Alert[] }>(`${BASE}/alerts/profile/${profileId}/active`)
+      .get<{ items: Alert[]; count: number }>(`${BASE}/alerts/profile/${profileId}/active`)
       .then((r) => r.data),
 
   escalate: (alertId: string, severity: string) =>

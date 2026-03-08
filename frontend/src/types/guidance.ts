@@ -38,7 +38,6 @@ export interface AlternativeOption {
   option_type: string;
   description: string;
   estimated_amount: number;
-  timing: string;
   advantages: string[];
   disadvantages: string[];
 }

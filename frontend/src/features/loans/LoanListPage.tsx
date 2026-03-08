@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Plus, Search } from "lucide-react";
-import { loanApi } from "@/api";
+import { Plus, Search, User, ChevronDown } from "lucide-react";
+import { loanApi, profileApi } from "@/api";
 import {
   Button,
   Card,
@@ -19,6 +19,13 @@ export function LoanListPage() {
   const [profileId, setProfileId] = useState("");
   const [searchId, setSearchId] = useState("");
 
+  // Fetch all profiles for the dropdown
+  const { data: profilesData, isLoading: profilesLoading } = useQuery({
+    queryKey: ["profiles-list"],
+    queryFn: () => profileApi.list({ limit: 100 }),
+  });
+  const profiles = profilesData?.items ?? [];
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["loans", searchId],
     queryFn: () => loanApi.listByBorrower(searchId, { limit: 50 }),
@@ -26,6 +33,14 @@ export function LoanListPage() {
   });
 
   const loans = data?.items ?? [];
+
+  // Auto-select the first profile once profiles load if nothing is selected
+  useEffect(() => {
+    if (profiles.length > 0 && !profileId && !searchId) {
+      setProfileId(profiles[0].profile_id);
+      setSearchId(profiles[0].profile_id);
+    }
+  }, [profiles]);
 
   return (
     <div className="space-y-6">
@@ -41,26 +56,61 @@ export function LoanListPage() {
         </Link>
       </div>
 
-      {/* Search by profile */}
+      {/* Profile selector */}
       <Card>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setSearchId(profileId);
-          }}
-          className="flex gap-3"
-        >
-          <div className="flex-1">
-            <Input
-              placeholder="Enter borrower profile ID to view loans…"
-              value={profileId}
-              onChange={(e) => setProfileId(e.target.value)}
-            />
-          </div>
-          <Button type="submit" icon={<Search className="h-4 w-4" />}>
-            Search
-          </Button>
-        </form>
+        <div className="space-y-3">
+          <label className="block text-sm font-medium text-gray-700">
+            <User className="inline h-4 w-4 mr-1 -mt-0.5" />
+            Select Borrower
+          </label>
+
+          {profilesLoading ? (
+            <div className="text-sm text-gray-400">Loading profiles…</div>
+          ) : profiles.length > 0 ? (
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <select
+                  value={profileId}
+                  onChange={(e) => {
+                    setProfileId(e.target.value);
+                    setSearchId(e.target.value);
+                  }}
+                  className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="" disabled>
+                    Choose a borrower…
+                  </option>
+                  {profiles.map((p) => (
+                    <option key={p.profile_id} value={p.profile_id}>
+                      {p.name} — {p.location} ({p.occupation})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              </div>
+            </div>
+          ) : (
+            /* Fallback to manual ID entry if no profiles exist */
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setSearchId(profileId);
+              }}
+              className="flex gap-3"
+            >
+              <div className="flex-1">
+                <Input
+                  placeholder="Enter borrower profile ID…"
+                  value={profileId}
+                  onChange={(e) => setProfileId(e.target.value)}
+                />
+              </div>
+              <Button type="submit" icon={<Search className="h-4 w-4" />}>
+                Search
+              </Button>
+            </form>
+          )}
+        </div>
       </Card>
 
       {/* Results */}

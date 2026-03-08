@@ -2,7 +2,7 @@ import axios from "axios";
 
 /** Shared Axios instance — all service-specific clients derive from this. */
 export const httpClient = axios.create({
-  timeout: 15_000,
+  timeout: 30_000,
   headers: { "Content-Type": "application/json" },
 });
 

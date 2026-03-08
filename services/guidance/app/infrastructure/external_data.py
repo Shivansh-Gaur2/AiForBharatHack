@@ -24,30 +24,30 @@ class HttpRiskDataProvider:
 
     async def get_risk_category(self, profile_id: ProfileId) -> str:
         if not self._cb.is_call_permitted():
-            return "MEDIUM"
+            return "UNKNOWN"
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(f"{self._base}/api/v1/risk/profile/{profile_id}/latest")
                 r.raise_for_status()
                 self._cb.record_success()
-                return r.json().get("risk_category", "MEDIUM")
+                return r.json().get("risk_category", "UNKNOWN")
         except Exception:
             self._cb.record_failure()
-            logger.warning("Risk service unavailable, defaulting to MEDIUM")
-            return "MEDIUM"
+            logger.warning("Risk service unavailable, defaulting to UNKNOWN")
+            return "UNKNOWN"
 
     async def get_risk_score(self, profile_id: ProfileId) -> float:
         if not self._cb.is_call_permitted():
-            return 500.0
+            return 0.0
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(f"{self._base}/api/v1/risk/profile/{profile_id}/latest")
                 r.raise_for_status()
                 self._cb.record_success()
-                return float(r.json().get("risk_score", 500.0))
+                return float(r.json().get("risk_score", 0.0))
         except Exception:
             self._cb.record_failure()
-            return 500.0
+            return 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -168,17 +168,17 @@ class HttpProfileDataProvider:
 
     async def get_household_expense(self, profile_id: ProfileId) -> float:
         if not self._cb.is_call_permitted():
-            return 8000.0
+            return 0.0
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(f"{self._base}/api/v1/profiles/{profile_id}")
                 r.raise_for_status()
                 self._cb.record_success()
                 data = r.json()
-                return float(data.get("household_monthly_expense", 8000.0))
+                return float(data.get("average_monthly_expense", 0.0))
         except Exception:
             self._cb.record_failure()
-            return 8000.0
+            return 0.0
 
 
 # ---------------------------------------------------------------------------
