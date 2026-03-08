@@ -91,7 +91,14 @@ else:
     loan_provider = StubLoanDataProvider()
     logger.info("Using StubLoanDataProvider (no LOAN_SERVICE_URL)")
 
-event_publisher = AsyncInMemoryEventPublisher()
+if settings.sns_topic_arn and settings.storage_backend == "dynamodb":
+    from services.shared.events import AsyncSNSEventPublisher
+    sns_client = boto3.client("sns", region_name=settings.aws_region)
+    event_publisher = AsyncSNSEventPublisher(sns_client, settings.sns_topic_arn)
+    logger.info("Using SNS event publisher: %s", settings.sns_topic_arn)
+else:
+    event_publisher = AsyncInMemoryEventPublisher()
+    logger.info("Using AsyncInMemoryEventPublisher (memory mode or no SNS topic)")
 
 risk_service = RiskAssessmentService(
     repo=repo,

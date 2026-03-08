@@ -6,12 +6,13 @@ import {
   ChevronUp,
   Search,
   Play,
+  User,
 } from "lucide-react";
-import { alertApi } from "@/api";
+import { alertApi, profileApi } from "@/api";
 import {
   Button,
   Card,
-  Input,
+  Select,
   Badge,
   PageSpinner,
   AlertBanner,
@@ -23,10 +24,16 @@ import { cn } from "@/lib/utils";
 import type { Alert } from "@/types";
 
 export function AlertsPage() {
-  const [profileInput, setProfileInput] = useState("");
   const [activeProfileId, setActiveProfileId] = useState("");
   const [tab, setTab] = useState<"active" | "all">("active");
   const queryClient = useQueryClient();
+
+  const { data: profilesData, isLoading: loadingProfiles } = useQuery({
+    queryKey: ["profiles"],
+    queryFn: () => profileApi.list({ limit: 200 }),
+  });
+  const profiles = profilesData?.items ?? [];
+  const selectedProfile = profiles.find((p) => p.profile_id === activeProfileId);
 
   const { data: activeAlerts, isLoading: loadingActive } = useQuery({
     queryKey: ["alerts-active", activeProfileId],
@@ -72,9 +79,8 @@ export function AlertsPage() {
     },
   });
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setActiveProfileId(profileInput);
+  function handleProfileChange(profileId: string) {
+    setActiveProfileId(profileId);
   }
 
   const alerts =
@@ -92,19 +98,24 @@ export function AlertsPage() {
         </p>
       </div>
 
-      {/* Search + Monitor */}
+      {/* Profile selector + Monitor */}
       <Card>
-        <form onSubmit={handleSearch} className="flex gap-3">
+        <div className="flex gap-3 items-end">
           <div className="flex-1">
-            <Input
-              placeholder="Enter borrower profile ID…"
-              value={profileInput}
-              onChange={(e) => setProfileInput(e.target.value)}
+            <Select
+              label="Select Borrower Profile"
+              value={activeProfileId}
+              onChange={(e) => handleProfileChange(e.target.value)}
+              options={
+                loadingProfiles
+                  ? [{ value: "", label: "Loading profiles…" }]
+                  : profiles.map((p) => ({
+                      value: p.profile_id,
+                      label: `${p.name} — ${p.location}`,
+                    }))
+              }
             />
           </div>
-          <Button type="submit" icon={<Search className="h-4 w-4" />}>
-            Search
-          </Button>
           {activeProfileId && (
             <Button
               type="button"
@@ -116,7 +127,14 @@ export function AlertsPage() {
               Monitor
             </Button>
           )}
-        </form>
+        </div>
+        {selectedProfile && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-brand-50 border border-brand-200 px-3 py-2">
+            <User className="h-4 w-4 text-brand-600" />
+            <span className="text-sm font-medium text-brand-700">{selectedProfile.name}</span>
+            <span className="text-xs text-brand-500">{selectedProfile.location}</span>
+          </div>
+        )}
       </Card>
 
       {monitorMutation.isError && (

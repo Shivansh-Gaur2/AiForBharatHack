@@ -86,6 +86,7 @@ class LoanDetailDTO(BaseModel):
     on_time_ratio: float
     monthly_obligation: float
     repayment_count: int
+    repayments: list[RepaymentRecordDTO] = []
     purpose: str
     notes: str
     created_at: datetime

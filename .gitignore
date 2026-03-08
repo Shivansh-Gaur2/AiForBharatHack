@@ -16,7 +16,9 @@ venv/
 ENV/
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea/
 *.swp
 *.swo
@@ -29,7 +31,8 @@ Desktop.ini
 
 # Environment variables
 .env
-.env.*
+.env.local
+!.env.example
 
 # Testing
 .pytest_cache/

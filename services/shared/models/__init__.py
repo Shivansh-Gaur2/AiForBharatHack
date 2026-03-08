@@ -16,9 +16,10 @@ AlertId = str
 GuidanceId = str
 
 
-def generate_id() -> str:
-    """Generate a new unique identifier."""
-    return str(uuid.uuid4())
+def generate_id(prefix: str | None = None) -> str:
+    """Generate a new unique identifier, optionally with a prefix."""
+    uid = str(uuid.uuid4())
+    return f"{prefix}-{uid}" if prefix else uid
 
 
 # ---------------------------------------------------------------------------

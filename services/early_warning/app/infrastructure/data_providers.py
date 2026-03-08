@@ -117,3 +117,9 @@ class StubProfileDataProvider:
 
     async def get_household_expense(self, profile_id: str) -> float:
         return self._household_expense
+
+    async def get_phone_number(self, profile_id: str) -> str | None:
+        return "+919999900000"  # Stub phone for dev
+
+    async def get_preferred_language(self, profile_id: str) -> str:
+        return "en"

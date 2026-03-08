@@ -7,10 +7,14 @@ Requirements: Req 3 (Cash Flow Prediction and Alignment)
 Models seasonal income/expense patterns for rural borrowers, generates
 monthly cash-flow projections, computes repayment capacity, and determines
 optimal credit timing aligned with income peaks.
+
+Uses the SeasonalRegressionCashFlowModel (seasonal-regression-v2) from the
+shared AI layer for higher-quality projections; falls back to seasonal-avg-v1.
 """
 
 from __future__ import annotations
 
+import logging
 import math
 import statistics
 from dataclasses import dataclass, field
@@ -18,6 +22,8 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from services.shared.models import ProfileId, Season, generate_id
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -477,6 +483,83 @@ def _timing_score(avg_net: float, min_net: float, start_inflow: float) -> float:
 
 
 # ---------------------------------------------------------------------------
+# AI-enhanced projection engine  (seasonal-regression-v2)
+# ---------------------------------------------------------------------------
+def _try_ai_projections(
+    records: list[CashFlowRecord],
+    horizon_months: int,
+    start_month: int,
+    start_year: int,
+    weather_adjustment: float,
+    market_adjustment: float,
+) -> tuple[list[MonthlyProjection], str] | None:
+    """Try the SeasonalRegressionCashFlowModel; return (projections, version) or None."""
+    try:
+        from services.shared.ai import get_cashflow_model, engineer_cashflow_features
+
+        model = get_cashflow_model()
+
+        # Build monthly history from records
+        month_flows: dict[tuple[int, int], dict[str, float]] = {}
+        for r in records:
+            key = (r.month, r.year)
+            entry = month_flows.setdefault(key, {"inflow": 0.0, "outflow": 0.0})
+            if r.direction == FlowDirection.INFLOW:
+                entry["inflow"] += r.amount
+            else:
+                entry["outflow"] += r.amount
+
+        # Sort chronologically
+        sorted_keys = sorted(month_flows.keys(), key=lambda k: (k[1], k[0]))
+        monthly_history = [
+            {"month": m, "year": y, "inflow": month_flows[(m, y)]["inflow"],
+             "outflow": month_flows[(m, y)]["outflow"]}
+            for m, y in sorted_keys
+        ]
+
+        if len(monthly_history) < 3:
+            return None  # Not enough data for AI model
+
+        external_factors = {
+            "weather_risk": max(0.0, 1.0 - weather_adjustment),
+            "market_price_change": market_adjustment - 1.0,
+        }
+
+        result = model.predict_cashflow(
+            monthly_history=monthly_history,
+            horizon_months=horizon_months,
+            external_factors=external_factors,
+        )
+
+        projections: list[MonthlyProjection] = []
+        for mp in result.monthly_predictions:
+            conf = ForecastConfidence.HIGH
+            if mp.confidence < 0.5:
+                conf = ForecastConfidence.LOW
+            elif mp.confidence < 0.75:
+                conf = ForecastConfidence.MEDIUM
+
+            projections.append(MonthlyProjection(
+                month=mp.month,
+                year=mp.year,
+                projected_inflow=round(mp.predicted_inflow, 2),
+                projected_outflow=round(mp.predicted_outflow, 2),
+                net_cash_flow=round(mp.predicted_inflow - mp.predicted_outflow, 2),
+                confidence=conf,
+                notes=f"AI model (confidence={mp.confidence:.0%})",
+            ))
+
+        return projections, result.model_version
+
+    except Exception:
+        logger.warning(
+            "AI cashflow model unavailable, falling back to seasonal-avg-v1",
+            exc_info=True,
+        )
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Forecast Factory
 # ---------------------------------------------------------------------------
 def build_forecast(
@@ -506,15 +589,23 @@ def build_forecast(
     if start_year is None:
         start_year = now.year
 
-    # 1) Seasonal patterns
+    # 1) Seasonal patterns (always computed — used for uncertainty & comparison)
     patterns = analyse_seasonal_patterns(records)
 
-    # 2) Monthly projections
-    projections = generate_projections(
-        patterns, horizon_months, start_month, start_year,
-        weather_adjustment=weather_adjustment,
-        market_adjustment=market_adjustment,
+    # 2) Monthly projections — try AI model first, fall back to seasonal avg
+    model_version = "seasonal-avg-v1"
+    ai_result = _try_ai_projections(
+        records, horizon_months, start_month, start_year,
+        weather_adjustment, market_adjustment,
     )
+    if ai_result is not None:
+        projections, model_version = ai_result
+    else:
+        projections = generate_projections(
+            patterns, horizon_months, start_month, start_year,
+            weather_adjustment=weather_adjustment,
+            market_adjustment=market_adjustment,
+        )
 
     # 3) Uncertainty bands
     bands = compute_uncertainty_bands(projections, patterns)
@@ -568,6 +659,7 @@ def build_forecast(
         assumptions=assumptions,
         repayment_capacity=capacity,
         timing_windows=timing,
+        model_version=model_version,
         created_at=now,
         updated_at=now,
     )

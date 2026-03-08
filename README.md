@@ -8,61 +8,42 @@ Built as a hackathon project for **AI for Bharat**.
 
 ## Architecture
 
-The system follows **Clean Architecture** (Hexagonal / Ports & Adapters) across 7 independently deployable microservices:
+The system follows **Clean Architecture** (Hexagonal / Ports & Adapters) across 8 independently deployable microservices + a React frontend:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                       API Gateway                           │
-└──────────┬───────┬───────┬───────┬───────┬──────┬──────────┘
-           │       │       │       │       │      │
-     ┌─────▼──┐ ┌──▼───┐ ┌▼────┐ ┌▼────┐ ┌▼───┐ ┌▼────────┐
-     │Profile │ │ Loan │ │Risk │ │Cash │ │E.W.│ │Guidance │
-     │Service │ │Track.│ │Asses│ │Flow │ │    │ │& Intel. │
-     │ :8001  │ │:8081 │ │:8082│ │:8083│ │:8084│ │ :8085   │
-     └────┬───┘ └──┬───┘ └─┬───┘ └─┬───┘ └─┬──┘ └──┬──────┘
-          │        │       │       │       │       │
-     ┌────▼────────▼───────▼───────▼───────▼───────▼──┐
-     │               Security & Privacy :8086          │
-     │   (Consent · Audit · Data Lineage · Retention)  │
-     └─────────────────────┬──────────────────────────┘
-                           │
-     ┌─────────────────────▼──────────────────────────┐
-     │           DynamoDB (single-table design)        │
-     │              SNS / SQS (events)                 │
-     └────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    React Frontend (:5173)                         │
+└──────┬───────┬───────┬───────┬───────┬──────┬──────┬────────────┘
+       │       │       │       │       │      │      │
+ ┌─────▼──┐ ┌──▼───┐ ┌▼────┐ ┌▼────┐ ┌▼───┐ ┌▼────┐ ┌▼──────────┐
+ │Profile │ │ Loan │ │Risk │ │Cash │ │E.W.│ │Guid.│ │AI Advisor │
+ │Service │ │Track.│ │Asses│ │Flow │ │    │ │     │ │  (Groq /  │
+ │ :8001  │ │:8002 │ │:8003│ │:8004│ │:8005│ │:8006│ │  Bedrock) │
+ └────┬───┘ └──┬───┘ └─┬───┘ └─┬───┘ └─┬──┘ └──┬──┘ │  :8008    │
+      │        │       │       │       │       │     └─────┬─────┘
+ ┌────▼────────▼───────▼───────▼───────▼───────▼───────────▼──┐
+ │               Security & Privacy :8007                      │
+ │   (Consent · Audit · Data Lineage · Retention)              │
+ └─────────────────────┬──────────────────────────────────────┘
+                       │
+ ┌─────────────────────▼──────────────────────────────────────┐
+ │           DynamoDB Local (:8000) · LocalStack (:4566)       │
+ └────────────────────────────────────────────────────────────┘
 ```
-
-Each service follows a strict three-layer structure:
-
-| Layer | Path | Responsibility |
-|-------|------|----------------|
-| **Interface** | `app/api/` | FastAPI routes, Pydantic request/response schemas |
-| **Domain** | `app/domain/` | Pure business logic — entities, value objects, domain services |
-| **Infrastructure** | `app/infrastructure/` | DynamoDB repositories, SNS publishers, HTTP clients |
 
 ### Services
 
 | Service | Port | Description |
 |---------|------|-------------|
 | **Profile** | 8001 | Borrower profiles with income volatility metrics and livelihood cycle tracking |
-| **Loan Tracker** | 8081 | Multi-source loan tracking (formal, semi-formal, informal) with debt exposure |
-| **Risk Assessment** | 8082 | 8-factor risk scoring engine with composite risk categories |
-| **Cash Flow** | 8083 | Seasonal cash flow forecasting with circuit breakers for external data |
-| **Early Warning** | 8084 | Alert system with scenario simulation for repayment stress |
-| **Guidance** | 8085 | Personalized credit guidance — timing, amounts, terms recommendations |
-| **Security** | 8086 | Consent management, audit logging, data lineage, retention policies |
-
-### Shared Library (`services/shared/`)
-
-Cross-cutting concerns used by all services:
-
-- **`auth/`** — Cognito JWT verification middleware
-- **`encryption/`** — Field-level Fernet/KMS encryption
-- **`events/`** — Domain event publishing via SNS (sync & async)
-- **`localization/`** — Multi-language support (6 Indic languages)
-- **`models/`** — Base Pydantic models and common types
-- **`validation/`** — Input validation rules for rural financial contexts
-- **`observability/`** — Structured JSON logging, request tracing, error middleware
+| **Loan Tracker** | 8002 | Multi-source loan tracking (formal, semi-formal, informal) with debt exposure |
+| **Risk Assessment** | 8003 | 8-factor risk scoring engine with composite risk categories |
+| **Cash Flow** | 8004 | Seasonal cash flow forecasting with circuit breakers for external data |
+| **Early Warning** | 8005 | Alert system with scenario simulation for repayment stress |
+| **Guidance** | 8006 | Personalized credit guidance — timing, amounts, terms recommendations |
+| **Security** | 8007 | Consent management, audit logging, data lineage, retention policies |
+| **AI Advisor** | 8008 | Conversational AI advisor powered by Groq (Llama 3.3 70B) or Amazon Bedrock |
+| **Frontend** | 5173 | React + TypeScript dashboard with Tailwind CSS |
 
 ---
 
@@ -70,17 +51,16 @@ Cross-cutting concerns used by all services:
 
 | Component | Technology |
 |-----------|------------|
-| Language | Python 3.12+ |
-| Framework | FastAPI + Pydantic v2 |
-| Database | DynamoDB (single-table design per service) |
-| Messaging | SNS → SQS (async domain events) |
-| Lambda adapter | Mangum |
-| Testing | pytest + Hypothesis (property-based) + moto (AWS mocking) |
-| Linting | Ruff |
-| Type checking | mypy |
-| CI | GitHub Actions |
-| IaC | AWS SAM (`template.yaml` per service) |
-| Local infra | Docker Compose (DynamoDB Local + LocalStack) |
+| **Frontend** | React 18 + TypeScript, Vite, Tailwind CSS, React Query, Recharts |
+| **Backend** | Python 3.12+, FastAPI + Pydantic v2 |
+| **AI/LLM** | Groq (Llama 3.3 70B) — free tier; Amazon Bedrock (Claude/Nova) as alternative |
+| **Database** | DynamoDB (single-table design per service) |
+| **Messaging** | SNS → SQS (async domain events) |
+| **ML Pipeline** | scikit-learn, custom models for risk/cashflow/early-warning |
+| **Lambda adapter** | Mangum |
+| **Testing** | pytest + Hypothesis (property-based) + moto (AWS mocking) |
+| **Local infra** | Docker Compose (DynamoDB Local + LocalStack) |
+| **IaC** | AWS SAM (`template.yaml` per service) |
 
 ---
 
@@ -88,99 +68,195 @@ Cross-cutting concerns used by all services:
 
 ### Prerequisites
 
-- Python 3.12+
-- Docker & Docker Compose
+| Tool | Version | Purpose |
+|------|---------|---------|
+| **Python** | 3.12+ | Backend services & ML pipeline |
+| **Node.js** | 18+ | Frontend (React) |
+| **Docker** | Latest | DynamoDB Local & LocalStack |
+| **Git** | Latest | Version control |
 
-### 1. Clone and set up the virtualenv
+### 1. Clone the repository
 
 ```bash
-git clone <repo-url> && cd AiForBharatHack
+git clone https://github.com/<your-org>/AiForBharatHack.git
+cd AiForBharatHack
+```
+
+### 2. Set up Python virtual environment
+
+```bash
 python -m venv .venv
 
-# Windows
+# Windows (PowerShell)
 .\.venv\Scripts\activate
 
 # Linux / macOS
 source .venv/bin/activate
 ```
 
-### 2. Install dependencies
+### 3. Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
 pip install -e services/shared
 ```
 
-### 3. Start local infrastructure
+### 4. Install frontend dependencies
+
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+### 5. Configure environment variables
+
+```bash
+# Copy the example env file
+cp .env.example .env
+```
+
+**Then edit `.env` and add your API keys:**
+
+| Variable | Required? | How to get it |
+|----------|-----------|---------------|
+| `GROQ_API_KEY` | **Yes** (for real AI) | Free at [console.groq.com](https://console.groq.com) — sign up, create API key |
+| `LLM_PROVIDER` | Yes | Set to `groq` (real AI) or `stub` (hardcoded responses, no key needed) |
+| `WEATHER_API_KEY` | Optional | For live weather data in cash-flow forecasts |
+
+> **Without a Groq API key**: Set `LLM_PROVIDER=stub` in `.env`. The AI advisor will return canned responses instead of real AI — everything else works normally.
+
+### 6. Start local infrastructure (Docker)
 
 ```bash
 docker compose -f infra/docker-compose.yml up -d
 ```
 
 This starts:
-- **DynamoDB Local** on `localhost:8000`
-- **LocalStack** (SNS/SQS) on `localhost:4566`
+- **DynamoDB Local** on `localhost:8000` (database)
+- **LocalStack** on `localhost:4566` (SNS/SQS events)
 
-DynamoDB tables are auto-created via an init container.
+Tables are auto-created by an init container.
 
-### 4. Configure environment
+> **No Docker?** Set `STORAGE_BACKEND=memory` in `.env` to skip Docker entirely. Data will be stored in-memory (lost on restart).
+
+### 7. Set up DynamoDB tables (if needed)
 
 ```bash
-cp .env.example .env   # or create .env with:
+python scripts/setup_local_infra.py
 ```
 
-Key variables (see `.env` for all):
+### 8. Seed sample data
+
+```bash
+python seed_profiles.py
+```
+
+This creates 5 sample borrower profiles for testing.
+
+### 9. Start all services
+
+**Option A: VS Code (recommended)**
+
+The project includes VS Code tasks. Open the Command Palette (`Ctrl+Shift+P`) and run:
+- `Tasks: Run Task` → **Start Full Stack** — starts all 8 backend services + frontend in parallel
+
+**Option B: Manual (each in a separate terminal)**
+
+```bash
+# Backend services
+uvicorn services.profile_service.app.main:app   --host 127.0.0.1 --port 8001 --reload
+uvicorn services.loan_tracker.app.main:app      --host 127.0.0.1 --port 8002 --reload
+uvicorn services.risk_assessment.app.main:app   --host 127.0.0.1 --port 8003 --reload
+uvicorn services.cashflow_service.app.main:app  --host 127.0.0.1 --port 8004 --reload
+uvicorn services.early_warning.app.main:app     --host 127.0.0.1 --port 8005 --reload
+uvicorn services.guidance.app.main:app          --host 127.0.0.1 --port 8006 --reload
+uvicorn services.security.app.main:app          --host 127.0.0.1 --port 8007 --reload
+uvicorn services.ai_advisor.app.main:app        --host 127.0.0.1 --port 8008 --reload
+
+# Frontend (separate terminal)
+cd frontend && npm run dev
+```
+
+### 10. Open the app
+
+- **Frontend**: [http://localhost:5173](http://localhost:5173)
+- **API Docs** (any service): `http://localhost:<port>/docs` (e.g., [http://localhost:8001/docs](http://localhost:8001/docs))
+
+---
+
+## Quick Start (TL;DR)
+
+```bash
+# 1. Clone & enter
+git clone <repo-url> && cd AiForBharatHack
+
+# 2. Setup
+python -m venv .venv && .\.venv\Scripts\activate    # Windows
+pip install -r requirements.txt && pip install -e services/shared
+cd frontend && npm install && cd ..
+
+# 3. Configure
+cp .env.example .env
+# Edit .env → add GROQ_API_KEY (get free key from https://console.groq.com)
+
+# 4. Infrastructure
+docker compose -f infra/docker-compose.yml up -d
+python scripts/setup_local_infra.py
+python seed_profiles.py
+
+# 5. Run (VS Code)
+# Ctrl+Shift+P → Tasks: Run Task → Start Full Stack
+```
+
+---
+
+## AI Advisor
+
+The AI Advisor service (`services/ai_advisor/`, port 8008) provides an intelligent conversational interface named **Krishi Mitra** (कृषि मित्र).
+
+### LLM Provider Options
+
+| Provider | Model | Cost | Setup |
+|----------|-------|------|-------|
+| **Groq** (default) | Llama 3.3 70B | Free (30 req/min) | Get key from [console.groq.com](https://console.groq.com) |
+| **Amazon Bedrock** | Claude / Nova / Titan | AWS pricing | Requires real AWS credentials with Bedrock access |
+| **Stub** | N/A (canned responses) | Free | No setup needed — for offline dev/testing |
+
+Configure in `.env`:
 
 ```env
-DYNAMODB_ENDPOINT_URL=http://localhost:8000
-SNS_ENDPOINT_URL=http://localhost:4566
-SKIP_AUTH=true
-ENVIRONMENT=local
+LLM_PROVIDER=groq                          # groq | bedrock | stub
+GROQ_API_KEY=gsk_your_key_here             # Required for groq
+GROQ_MODEL_ID=llama-3.3-70b-versatile      # Default model
 ```
 
-### 5. Start services
-
-```bash
-# Start all services (each in a separate terminal, or use background mode):
-uvicorn services.profile_service.app.main:app   --port 8001 --reload
-uvicorn services.loan_tracker.app.main:app      --port 8081 --reload
-uvicorn services.risk_assessment.app.main:app   --port 8082 --reload
-uvicorn services.cashflow_service.app.main:app  --port 8083 --reload
-uvicorn services.early_warning.app.main:app     --port 8084 --reload
-uvicorn services.guidance.app.main:app          --port 8085 --reload
-uvicorn services.security.app.main:app          --port 8086 --reload
-```
-
-Each service exposes interactive API docs at `http://localhost:<port>/docs`.
+### Features
+- Intent classification (loan advice, risk explanation, scheme recommendations, etc.)
+- Context-aware responses using data from all microservices
+- Streaming responses (real-time token delivery)
+- Multi-language support (Hindi, Telugu, Tamil, Kannada, Marathi, Bengali)
+- Conversation history with DynamoDB persistence
 
 ---
 
 ## Testing
 
-### Unit tests (all services)
-
 ```bash
-pytest                          # uses pyproject.toml config
-pytest --cov=services           # with coverage
-```
+# All unit tests
+pytest
 
-### Single service
+# With coverage
+pytest --cov=services
 
-```bash
+# Single service
 pytest services/profile_service/tests/ -v
-```
 
-### E2E tests (requires running services)
+# E2E tests (requires running services)
+pytest -m e2e
 
-```bash
-pytest -m e2e                   # run all e2e tests
-python tests/e2e/test_api.py    # standalone e2e script
-```
-
-### Property-based tests
-
-```bash
-pytest services/profile_service/tests/property/ -v
+# ML pipeline tests
+pytest ml-pipeline/tests/ -v
 ```
 
 ---
@@ -189,70 +265,98 @@ pytest services/profile_service/tests/property/ -v
 
 ```
 AiForBharatHack/
-├── .github/workflows/ci.yml     # CI pipeline (lint → test matrix → SAM build)
-├── infra/docker-compose.yml     # Local DynamoDB + LocalStack
-├── pyproject.toml               # Ruff, mypy, pytest configuration
-├── requirements.txt             # Root-level dependencies
-├── design.md                    # System design document
-├── requirements.md              # Functional requirements
-├── implementation-plan.md       # Phased implementation plan
+├── .env.example                  # Environment template (copy to .env)
+├── .vscode/tasks.json            # VS Code tasks for one-click startup
+├── infra/docker-compose.yml      # Local DynamoDB + LocalStack
+├── pyproject.toml                # Ruff, mypy, pytest configuration
+├── requirements.txt              # Root-level Python dependencies
+├── seed_profiles.py              # Seed sample borrower data
+├── scripts/setup_local_infra.py  # Create DynamoDB tables & SNS topics
+│
+├── frontend/                     # React + TypeScript frontend
+│   ├── src/
+│   │   ├── api/                  # API client layer
+│   │   ├── components/           # Reusable UI components
+│   │   ├── features/             # Feature modules (dashboard, chat, etc.)
+│   │   └── types/                # TypeScript type definitions
+│   ├── package.json
+│   └── vite.config.ts
 │
 ├── services/
-│   ├── shared/                  # Shared library (installed as editable package)
-│   │   ├── auth/                # JWT verification
-│   │   ├── encryption/          # Field-level encryption
-│   │   ├── events/              # Domain event publishing (SNS)
-│   │   ├── localization/        # i18n (6 languages)
-│   │   ├── models/              # Base Pydantic models
-│   │   ├── observability/       # Structured logging & middleware
-│   │   └── validation/          # Input validation
+│   ├── shared/                   # Shared library (installed as editable package)
+│   │   ├── auth/                 # JWT verification middleware
+│   │   ├── encryption/           # Field-level encryption (Fernet/KMS)
+│   │   ├── events/               # Domain event publishing (SNS)
+│   │   ├── localization/         # Multi-language support (6 Indic languages)
+│   │   ├── models/               # Base Pydantic models & common types
+│   │   ├── observability/        # Structured logging & request tracing
+│   │   └── validation/           # Input validation for rural financial contexts
 │   │
-│   ├── profile_service/         # Borrower profile management
-│   ├── loan_tracker/            # Multi-loan exposure tracking
-│   ├── risk_assessment/         # 8-factor risk scoring
-│   ├── cashflow_service/        # Seasonal cash flow forecasting
-│   ├── early_warning/           # Alert & scenario simulation
-│   ├── guidance/                # Credit guidance engine
-│   └── security/                # Privacy & consent management
+│   ├── profile_service/          # :8001 — Borrower profile management
+│   ├── loan_tracker/             # :8002 — Multi-loan exposure tracking
+│   ├── risk_assessment/          # :8003 — 8-factor risk scoring
+│   ├── cashflow_service/         # :8004 — Seasonal cash flow forecasting
+│   ├── early_warning/            # :8005 — Alert & scenario simulation
+│   ├── guidance/                 # :8006 — Credit guidance engine
+│   ├── security/                 # :8007 — Privacy & consent management
+│   └── ai_advisor/               # :8008 — Conversational AI advisor (Groq/Bedrock)
 │
-└── tests/e2e/                   # Standalone end-to-end API scripts
+├── ml-pipeline/                  # ML models for risk, cashflow, early warning
+│   ├── models/                   # Trained model artefacts
+│   ├── data/                     # Feature engineering & synthetic data
+│   ├── evaluation/               # Model evaluation & bias detection
+│   └── pipelines/                # Training pipelines
+│
+└── tests/                        # Integration & E2E tests
 ```
 
 Each service follows the same internal structure:
 
 ```
 <service>/
-├── template.yaml                # AWS SAM template
-├── requirements.txt             # Runtime dependencies
-├── requirements-dev.txt         # Dev/test dependencies
+├── template.yaml                 # AWS SAM template (Lambda + API Gateway)
+├── requirements.txt              # Runtime dependencies
 ├── app/
-│   ├── main.py                  # FastAPI app factory + Mangum handler
-│   ├── config.py                # Pydantic settings (env-driven)
+│   ├── main.py                   # FastAPI app + dependency wiring
+│   ├── config.py                 # Settings from environment
 │   ├── api/
-│   │   ├── routes.py            # HTTP endpoints
-│   │   └── schemas.py           # Request/response DTOs
+│   │   ├── routes.py             # HTTP endpoints
+│   │   └── schemas.py            # Request/response DTOs
 │   ├── domain/
-│   │   ├── models.py            # Entities, value objects, aggregates
-│   │   └── services.py          # Business rules & orchestration
+│   │   ├── models.py             # Entities, value objects, aggregates
+│   │   └── services.py           # Business rules & orchestration
 │   └── infrastructure/
-│       ├── dynamo_repo.py       # DynamoDB repository
-│       └── sqs_events.py        # Event publisher factory
-└── tests/
-    ├── test_models.py           # Domain model unit tests
-    ├── test_services.py         # Service layer tests
-    ├── test_validators.py       # Validation tests
-    └── test_e2e.py              # E2E tests (marked, excluded by default)
+│       ├── dynamo_repo.py        # DynamoDB repository
+│       └── event_publisher.py    # SNS event publishing
+└── tests/                        # Unit & integration tests
 ```
 
 ---
 
-## CI Pipeline
+## Troubleshooting
 
-The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push to `main`/`develop`:
+| Problem | Solution |
+|---------|----------|
+| **Port already in use** | Kill the process: `netstat -ano \| findstr :PORT` → `taskkill /F /PID <pid>` |
+| **DynamoDB connection refused** | Make sure Docker is running: `docker compose -f infra/docker-compose.yml up -d` |
+| **AI gives canned responses** | Check `.env`: ensure `LLM_PROVIDER=groq` and `GROQ_API_KEY` is set |
+| **Module not found** | Run `pip install -e services/shared` and `pip install -r requirements.txt` |
+| **Frontend won't start** | Run `cd frontend && npm install` |
+| **Tables don't exist** | Run `python scripts/setup_local_infra.py` |
 
-1. **Lint & Type-check** — Ruff lint + format check, mypy for all services
-2. **Test matrix** — Each service tested in parallel with DynamoDB Local + LocalStack
-3. **SAM Build** — Validates and builds each service's Lambda deployment package
+---
+
+## Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| DynamoDB single-table per service | Cost-effective, serverless-native, scales to zero |
+| Clean Architecture | Domain logic is framework-independent and testable in isolation |
+| Groq for AI (Llama 3.3 70B) | Free tier, fast inference, no AWS dependency for local dev |
+| Property-based testing (Hypothesis) | Catches edge cases in financial calculations |
+| Field-level encryption | DPDP Act compliance for sensitive borrower data |
+| VS Code tasks for startup | One-click full-stack startup for developers |
+| `.env.example` template | Safe onboarding without exposing secrets |
 
 ---
 
@@ -267,21 +371,6 @@ sam deploy --guided
 ```
 
 Services deploy as **AWS Lambda** functions behind API Gateway, with DynamoDB tables and SNS topics provisioned via CloudFormation.
-
----
-
-## Key Design Decisions
-
-| Decision | Rationale |
-|----------|-----------|
-| DynamoDB single-table per service | Cost-effective, serverless-native, scales to zero |
-| Clean Architecture | Domain logic is framework-independent and testable in isolation |
-| Property-based testing (Hypothesis) | Catches edge cases in financial calculations |
-| Async event publishing | Fire-and-forget domain events decouple services |
-| Field-level encryption | DPDP Act compliance for sensitive borrower data |
-| RFC 7807 error responses | Standard problem detail format for APIs |
-| Structured JSON logging | CloudWatch/Datadog-compatible, request-scoped correlation IDs |
-| E2E tests as separate marker | Fast CI (unit-only by default), full validation on demand |
 
 ---
 

@@ -34,11 +34,21 @@ logger = logging.getLogger(__name__)
 
 
 class DynamoDBProfileRepository:
-    """Concrete adapter implementing the ProfileRepository port."""
+    """Concrete adapter implementing the ProfileRepository port.
 
-    def __init__(self, dynamodb_resource: Any, table_name: str) -> None:
+    If a ``FieldEncryptor`` is provided, sensitive PII fields (phone, name,
+    bank details) are encrypted at rest using field-level encryption (Req 9.1).
+    """
+
+    def __init__(
+        self,
+        dynamodb_resource: Any,
+        table_name: str,
+        field_encryptor: Any | None = None,
+    ) -> None:
         self._table = dynamodb_resource.Table(table_name)
         self._table_name = table_name
+        self._enc = field_encryptor  # FieldEncryptor | None
 
     # ------------------------------------------------------------------
     # ProfileRepository interface
@@ -155,20 +165,30 @@ class DynamoDBProfileRepository:
     # ------------------------------------------------------------------
 
     def _to_dynamodb_item(self, profile: BorrowerProfile) -> dict[str, Any]:
-        """Serialize domain entity → DynamoDB item."""
+        """Serialize domain entity → DynamoDB item.
+
+        Encrypts sensitive PII fields when a FieldEncryptor is configured.
+        """
+        personal = {
+            "name": profile.personal_info.name,
+            "age": profile.personal_info.age,
+            "gender": profile.personal_info.gender,
+            "district": profile.personal_info.district,
+            "state": profile.personal_info.state,
+            "dependents": profile.personal_info.dependents,
+            "phone": profile.personal_info.phone,
+            "location": profile.personal_info.location,
+        }
+
+        # Encrypt PII fields if encryptor is available
+        if self._enc is not None:
+            personal = self._enc.encrypt_dict(personal, ["name", "phone"])
+
         return {
             "PK": f"PROFILE#{profile.profile_id}",
             "SK": "METADATA",
             "profile_id": profile.profile_id,
-            "personal_info": {
-                "name": profile.personal_info.name,
-                "age": profile.personal_info.age,
-                "gender": profile.personal_info.gender,
-                "district": profile.personal_info.district,
-                "state": profile.personal_info.state,
-                "dependents": profile.personal_info.dependents,
-                "phone": profile.personal_info.phone,
-            },
+            "personal_info": personal,
             "livelihood_info": {
                 "primary_occupation": profile.livelihood_info.primary_occupation.value,
                 "secondary_occupations": [o.value for o in profile.livelihood_info.secondary_occupations],
@@ -236,8 +256,16 @@ class DynamoDBProfileRepository:
         }
 
     def _from_dynamodb_item(self, item: dict[str, Any]) -> BorrowerProfile:
-        """Deserialize DynamoDB item → domain entity."""
+        """Deserialize DynamoDB item → domain entity.
+
+        Decrypts PII fields when a FieldEncryptor is configured.
+        """
         pi = item["personal_info"]
+
+        # Decrypt PII fields if encryptor is available
+        if self._enc is not None:
+            pi = self._enc.decrypt_dict(pi, ["name", "phone"])
+
         li = item["livelihood_info"]
 
         land_holding = None
@@ -301,6 +329,7 @@ class DynamoDBProfileRepository:
                 state=pi["state"],
                 dependents=int(pi["dependents"]),
                 phone=pi.get("phone"),
+                location=pi.get("location", ""),
             ),
             livelihood_info=livelihood_info,
             income_records=[

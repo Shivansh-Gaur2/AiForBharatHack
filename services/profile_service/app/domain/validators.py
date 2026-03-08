@@ -34,8 +34,8 @@ def validate_personal_info(info: PersonalInfo) -> ValidationResult:
     if info.age > 100:
         errors.append(ValidationError("age", "Age exceeds reasonable maximum of 100", info.age))
 
-    if info.gender not in ("M", "F", "O"):
-        errors.append(ValidationError("gender", "Gender must be M, F, or O", info.gender))
+    if info.gender not in ("M", "F", "O", "male", "female", "other"):
+        errors.append(ValidationError("gender", "Gender must be M, F, O, male, female, or other", info.gender))
 
     if not info.district:
         errors.append(ValidationError("district", "District is required"))

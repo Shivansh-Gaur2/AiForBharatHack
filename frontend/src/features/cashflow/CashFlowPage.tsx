@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { TrendingUp, RefreshCw, CalendarClock } from "lucide-react";
-import { cashflowApi } from "@/api";
+import { TrendingUp, RefreshCw, CalendarClock, User } from "lucide-react";
+import { cashflowApi, profileApi } from "@/api";
 import {
   Button,
   Card,
   CardTitle,
-  Input,
+  Select,
   StatCard,
   PageSpinner,
   AlertBanner,
@@ -20,13 +20,16 @@ import { CashFlowChart } from "./CashFlowChart";
 
 export function CashFlowPage() {
   const [searchParams] = useSearchParams();
-  const [profileInput, setProfileInput] = useState(
-    searchParams.get("profile") ?? "",
-  );
-  const [activeProfileId, setActiveProfileId] = useState(
-    searchParams.get("profile") ?? "",
-  );
+  const initialProfile = searchParams.get("profile") ?? "";
+  const [activeProfileId, setActiveProfileId] = useState(initialProfile);
   const queryClient = useQueryClient();
+
+  const { data: profilesData, isLoading: loadingProfiles } = useQuery({
+    queryKey: ["profiles"],
+    queryFn: () => profileApi.list({ limit: 200 }),
+  });
+  const profiles = profilesData?.items ?? [];
+  const selectedProfile = profiles.find((p) => p.profile_id === activeProfileId);
 
   const {
     data: forecast,
@@ -52,9 +55,8 @@ export function CashFlowPage() {
     },
   });
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setActiveProfileId(profileInput);
+  function handleProfileChange(profileId: string) {
+    setActiveProfileId(profileId);
   }
 
   return (
@@ -69,15 +71,22 @@ export function CashFlowPage() {
       </div>
 
       <Card>
-        <form onSubmit={handleSearch} className="flex gap-3">
+        <div className="flex gap-3 items-end">
           <div className="flex-1">
-            <Input
-              placeholder="Enter borrower profile ID…"
-              value={profileInput}
-              onChange={(e) => setProfileInput(e.target.value)}
+            <Select
+              label="Select Borrower Profile"
+              value={activeProfileId}
+              onChange={(e) => handleProfileChange(e.target.value)}
+              options={
+                loadingProfiles
+                  ? [{ value: "", label: "Loading profiles…" }]
+                  : profiles.map((p) => ({
+                      value: p.profile_id,
+                      label: `${p.name} — ${p.location}`,
+                    }))
+              }
             />
           </div>
-          <Button type="submit">View Forecast</Button>
           {activeProfileId && (
             <Button
               type="button"
@@ -89,7 +98,14 @@ export function CashFlowPage() {
               Generate
             </Button>
           )}
-        </form>
+        </div>
+        {selectedProfile && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-brand-50 border border-brand-200 px-3 py-2">
+            <User className="h-4 w-4 text-brand-600" />
+            <span className="text-sm font-medium text-brand-700">{selectedProfile.name}</span>
+            <span className="text-xs text-brand-500">{selectedProfile.location}</span>
+          </div>
+        )}
       </Card>
 
       {generateMutation.isError && (

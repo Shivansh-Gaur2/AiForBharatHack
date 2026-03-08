@@ -44,6 +44,10 @@ export default defineConfig({
         target: "http://localhost:8007",
         changeOrigin: true,
       },
+      "/api/v1/ai-advisor": {
+        target: "http://localhost:8008",
+        changeOrigin: true,
+      },
     },
   },
 });

@@ -200,3 +200,33 @@ class HttpProfileDataProvider:
         except Exception:
             self._circuit.record_failure()
             return 8000.0
+
+    async def get_phone_number(self, profile_id: str) -> str | None:
+        if not self._circuit.is_call_permitted():
+            return None
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(f"{self._base_url}/api/v1/profiles/{profile_id}")
+                if r.status_code == 200:
+                    self._circuit.record_success()
+                    return r.json().get("phone")
+                self._circuit.record_failure()
+                return None
+        except Exception:
+            self._circuit.record_failure()
+            return None
+
+    async def get_preferred_language(self, profile_id: str) -> str:
+        if not self._circuit.is_call_permitted():
+            return "en"
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(f"{self._base_url}/api/v1/profiles/{profile_id}")
+                if r.status_code == 200:
+                    self._circuit.record_success()
+                    return r.json().get("preferred_language", "en")
+                self._circuit.record_failure()
+                return "en"
+        except Exception:
+            self._circuit.record_failure()
+            return "en"

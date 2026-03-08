@@ -122,6 +122,18 @@ TABLES = [
         ],
         "BillingMode": "PAY_PER_REQUEST",
     },
+    {
+        "TableName": "rural-credit-conversations",
+        "KeySchema": [
+            {"AttributeName": "PK", "KeyType": "HASH"},
+            {"AttributeName": "SK", "KeyType": "RANGE"},
+        ],
+        "AttributeDefinitions": [
+            {"AttributeName": "PK", "AttributeType": "S"},
+            {"AttributeName": "SK", "AttributeType": "S"},
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+    },
 ]
 
 

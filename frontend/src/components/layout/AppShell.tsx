@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { ChatWidget } from "@/features/advisor";
 
 /** Root layout shell — sidebar + header + content outlet. */
 export function AppShell() {
@@ -13,6 +14,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <ChatWidget />
     </div>
   );
 }

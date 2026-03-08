@@ -2,13 +2,13 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Lightbulb,
-  Search,
   Clock,
   IndianRupee,
   ShieldCheck,
   CalendarCheck,
+  User,
 } from "lucide-react";
-import { guidanceApi } from "@/api";
+import { guidanceApi, profileApi } from "@/api";
 import {
   Button,
   Card,
@@ -38,7 +38,6 @@ const PURPOSE_OPTIONS = Object.values(LoanPurpose).map((v) => ({
 }));
 
 export function GuidancePage() {
-  const [profileInput, setProfileInput] = useState("");
   const [activeProfileId, setActiveProfileId] = useState("");
   const [selectedGuidance, setSelectedGuidance] =
     useState<CreditGuidance | null>(null);
@@ -49,6 +48,15 @@ export function GuidancePage() {
     LoanPurpose.CROP_CULTIVATION,
   );
   const [amount, setAmount] = useState("50000");
+
+  // Fetch all profiles for the dropdown
+  const { data: profilesData, isLoading: loadingProfiles } = useQuery({
+    queryKey: ["profiles"],
+    queryFn: () => profileApi.list({ limit: 200 }),
+  });
+
+  const profiles = profilesData?.items ?? [];
+  const selectedProfile = profiles.find((p) => p.profile_id === activeProfileId);
 
   // Active guidance for a profile
   const {
@@ -84,9 +92,8 @@ export function GuidancePage() {
     },
   });
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setActiveProfileId(profileInput);
+  function handleProfileChange(profileId: string) {
+    setActiveProfileId(profileId);
     setSelectedGuidance(null);
   }
 
@@ -110,27 +117,41 @@ export function GuidancePage() {
         </p>
       </div>
 
-      {/* Profile search */}
+      {/* Profile selector */}
       <Card>
-        <form onSubmit={handleSearch} className="flex gap-3">
-          <div className="flex-1">
-            <Input
-              placeholder="Enter borrower profile ID…"
-              value={profileInput}
-              onChange={(e) => setProfileInput(e.target.value)}
-            />
-          </div>
-          <Button type="submit" icon={<Search className="h-4 w-4" />}>
-            Search
-          </Button>
-        </form>
+        <div className="space-y-3">
+          <Select
+            label="Select Borrower Profile"
+            value={activeProfileId}
+            onChange={(e) => handleProfileChange(e.target.value)}
+            options={
+              loadingProfiles
+                ? [{ value: "", label: "Loading profiles…" }]
+                : profiles.map((p) => ({
+                    value: p.profile_id,
+                    label: `${p.name} — ${p.location} (${formatEnum(p.occupation)})`,
+                  }))
+            }
+          />
+          {selectedProfile && (
+            <div className="flex items-center gap-2 rounded-lg bg-brand-50 border border-brand-200 px-3 py-2">
+              <User className="h-4 w-4 text-brand-600" />
+              <span className="text-sm font-medium text-brand-700">
+                {selectedProfile.name}
+              </span>
+              <span className="text-xs text-brand-500">
+                {selectedProfile.location} · {formatEnum(selectedProfile.occupation)}
+              </span>
+            </div>
+          )}
+        </div>
       </Card>
 
       {!activeProfileId && (
         <EmptyState
           icon={<Lightbulb className="h-12 w-12" />}
-          title="Enter a profile ID"
-          description="Search for a borrower to generate personalized credit guidance."
+          title="Select a borrower"
+          description="Choose a borrower profile above to generate personalized credit guidance."
         />
       )}
 

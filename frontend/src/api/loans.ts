@@ -1,6 +1,7 @@
 import { httpClient } from "./client";
 import type {
   LoanDetail,
+  LoanSummary,
   DebtExposure,
   TrackLoanRequest,
   RecordRepaymentRequest,
@@ -32,7 +33,7 @@ export const loanApi = {
     params?: { active_only?: boolean; limit?: number; cursor?: string },
   ) =>
     httpClient
-      .get<PaginatedResponse<LoanDetail>>(`${BASE}/borrower/${profileId}`, {
+      .get<PaginatedResponse<LoanSummary>>(`${BASE}/borrower/${profileId}`, {
         params,
       })
       .then((r) => r.data),

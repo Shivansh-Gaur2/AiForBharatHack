@@ -9,6 +9,7 @@ This is the composition root — where we wire dependencies together:
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import boto3
@@ -77,12 +78,40 @@ def _create_sns_client():
 
 def _bootstrap() -> None:
     """Wire all dependencies and register routers."""
-    # Repository adapter — memory by default, DynamoDB when explicitly requested
+
+    # ── Field-level encryption (Req 9.1) ─────────────────────────
+    field_encryptor = None
+    kms_key_id = getattr(settings, "kms_key_id", None)
+    if kms_key_id and settings.storage_backend == "dynamodb":
+        try:
+            from services.shared.encryption import KMSEncryptor
+            from services.shared.encryption.field_encryption import FieldEncryptor
+
+            kms_client = boto3.client("kms", region_name=settings.aws_region)
+            encryptor = KMSEncryptor(kms_client, kms_key_id)
+            field_encryptor = FieldEncryptor(encryptor)
+            logger.info("Field-level encryption enabled (KMS key=%s)", kms_key_id)
+        except Exception:
+            logger.warning("KMS encryption init failed, using unencrypted storage", exc_info=True)
+    elif settings.storage_backend == "dynamodb":
+        try:
+            from services.shared.encryption import LocalEncryptor
+            from services.shared.encryption.field_encryption import FieldEncryptor
+
+            enc_key = os.environ.get("FIELD_ENCRYPTION_KEY")
+            key_bytes = enc_key.encode() if enc_key else None
+            field_encryptor = FieldEncryptor(LocalEncryptor(key=key_bytes))
+            logger.info("Field-level encryption enabled (Fernet/local, key=%s)", "env" if enc_key else "random")
+        except Exception:
+            logger.warning("Local encryption init failed", exc_info=True)
+
+    # ── Repository adapter ────────────────────────────────────────
     if settings.storage_backend == "dynamodb":
         dynamodb = _create_dynamodb_resource()
         repository = DynamoDBProfileRepository(
             dynamodb_resource=dynamodb,
             table_name=settings.dynamodb_table_name,
+            field_encryptor=field_encryptor,
         )
         logger.info("Using DynamoDBProfileRepository (table=%s)", settings.dynamodb_table_name)
     else:

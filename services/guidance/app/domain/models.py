@@ -2,10 +2,15 @@
 
 Pure business logic — zero framework or infrastructure imports.
 Implements Req 7: Personalized Credit Guidance.
+
+Uses the MultiObjectiveCreditOptimiser (moo-credit-v1) from the shared AI
+layer to refine amount / tenure / timing recommendations.  Falls back to
+rule-based logic when the optimiser is unavailable.
 """
 
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -21,6 +26,7 @@ from services.shared.models import (
 )
 
 UTC = UTC
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Enumerations
@@ -558,14 +564,70 @@ def build_credit_guidance(
     tenure_months: int = 12,
     interest_rate_annual: float = 9.0,
 ) -> CreditGuidance:
-    """Orchestrate all pure functions to build complete credit guidance."""
+    """Orchestrate all pure functions to build complete credit guidance.
+
+    Tries the MultiObjectiveCreditOptimiser first; falls back to
+    rule-based recommendation if the AI layer is unavailable.
+    """
     capacities = compute_monthly_capacities(projections, existing_obligations)
 
-    amount = recommend_loan_amount(
-        capacities, requested_amount, risk_category, tenure_months, interest_rate_annual,
-    )
-    timing = find_optimal_timing(capacities, tenure_months)
-    terms = compute_suggested_terms(amount, tenure_months, interest_rate_annual, risk_category)
+    # ── Try AI-optimised amount / timing / terms ────────────────────
+    amount: AmountRange | None = None
+    timing: TimingWindow | None = None
+    terms: SuggestedTerms | None = None
+    ai_reasoning: list[str] = []
+
+    try:
+        from services.shared.ai import get_credit_optimiser
+
+        opt = get_credit_optimiser()
+        surpluses = [c.surplus for c in capacities]
+        avg_surplus = sum(surpluses) / len(surpluses) if surpluses else 0.0
+
+        opt_result = opt.optimise(
+            avg_monthly_surplus=avg_surplus,
+            risk_score=risk_score,
+            risk_category=risk_category,
+            dti_ratio=dti_ratio,
+            loan_purpose=loan_purpose.value,
+            requested_amount=requested_amount,
+            interest_rate_annual=interest_rate_annual,
+        )
+
+        # Build amount range: ±20% around AI-recommended amount
+        ai_min = max(0.0, opt_result.recommended_amount * 0.8)
+        ai_max = opt_result.recommended_amount
+        amount = AmountRange(
+            min_amount=round(ai_min, 2),
+            max_amount=round(ai_max, 2),
+        )
+
+        # AI-suggested terms
+        terms = compute_suggested_terms(
+            amount, opt_result.recommended_tenure, interest_rate_annual, risk_category,
+        )
+
+        ai_reasoning = opt_result.reasoning
+        logger.info(
+            "AI credit optimiser applied: amount=%.0f tenure=%d score=%.2f",
+            opt_result.recommended_amount, opt_result.recommended_tenure,
+            opt_result.affordability_score,
+        )
+    except Exception:
+        logger.warning(
+            "AI credit optimiser unavailable, using rules-based guidance",
+            exc_info=True,
+        )
+
+    # ── Fall back to rule-based if AI didn't produce results ────────
+    if amount is None:
+        amount = recommend_loan_amount(
+            capacities, requested_amount, risk_category, tenure_months, interest_rate_annual,
+        )
+    if timing is None:
+        timing = find_optimal_timing(capacities, tenure_months)
+    if terms is None:
+        terms = compute_suggested_terms(amount, tenure_months, interest_rate_annual, risk_category)
 
     avg_surplus = sum(c.surplus for c in capacities) / len(capacities) if capacities else 0.0
     avg_inflow = sum(c.projected_inflow for c in capacities) / len(capacities) if capacities else 0.0
@@ -573,6 +635,12 @@ def build_credit_guidance(
 
     alternatives = generate_alternative_options(risk_category, loan_purpose, amount.max_amount)
     explanation = build_explanation(loan_purpose, risk_summ, timing, amount, capacities)
+
+    # Append AI reasoning to explanation if available
+    if ai_reasoning and explanation.summary:
+        reasoning_suffix = " | AI insights: " + "; ".join(ai_reasoning[:3])
+        from dataclasses import replace as dc_replace
+        explanation = dc_replace(explanation, summary=explanation.summary + reasoning_suffix)
 
     return CreditGuidance(
         guidance_id=generate_id(),

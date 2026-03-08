@@ -1,0 +1,187 @@
+name: Deploy — Staging / Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      services:
+        description: "Services to deploy (comma-separated, or 'all')"
+        required: true
+        default: all
+
+permissions:
+  contents: read
+  id-token: write  # For OIDC with AWS
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ────────────────────────────────────────────────────────────────
+  # Determine which services to deploy
+  # ────────────────────────────────────────────────────────────────
+  matrix:
+    name: Build deploy matrix
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.parse.outputs.services }}
+    steps:
+      - id: parse
+        run: |
+          INPUT="${{ github.event.inputs.services }}"
+          if [ "$INPUT" = "all" ]; then
+            echo 'services=["profile_service","loan_tracker","risk_assessment","cashflow_service","early_warning","guidance","security"]' >> $GITHUB_OUTPUT
+          else
+            ARRAY=$(echo "$INPUT" | sed 's/ //g' | jq -R 'split(",")' -c)
+            echo "services=$ARRAY" >> $GITHUB_OUTPUT
+          fi
+
+  # ────────────────────────────────────────────────────────────────
+  # Deploy backend services via SAM
+  # ────────────────────────────────────────────────────────────────
+  deploy-backend:
+    name: Deploy ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: matrix
+    environment: ${{ github.event.inputs.environment }}
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        service: ${{ fromJson(needs.matrix.outputs.services) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: SAM Build
+        run: |
+          cd services/${{ matrix.service }}
+          sam build
+
+      - name: SAM Deploy
+        run: |
+          cd services/${{ matrix.service }}
+          sam deploy \
+            --stack-name rural-credit-${{ matrix.service }}-${{ github.event.inputs.environment }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --capabilities CAPABILITY_IAM \
+            --parameter-overrides "Environment=${{ github.event.inputs.environment }}" \
+            --tags "project=rural-credit-advisor" "env=${{ github.event.inputs.environment }}"
+
+  # ────────────────────────────────────────────────────────────────
+  # Deploy frontend (S3 + CloudFront)
+  # ────────────────────────────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    if: contains(github.event.inputs.services, 'all') || contains(github.event.inputs.services, 'frontend')
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install & build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync frontend/dist/ \
+            s3://${{ vars.FRONTEND_BUCKET }} \
+            --delete
+
+      - name: Invalidate CloudFront
+        if: vars.CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+  # ────────────────────────────────────────────────────────────────
+  # Post-deploy smoke test
+  # ────────────────────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    if: always() && needs.deploy-backend.result == 'success'
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test deps
+        run: pip install httpx pytest
+
+      - name: Run smoke tests
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+        run: |
+          python -c "
+          import httpx, sys
+          base = '${{ vars.API_BASE_URL }}'
+          services = [
+              ('profile', '/api/v1/profiles/health'),
+              ('loan',    '/api/v1/loans/health'),
+              ('risk',    '/api/v1/risk/health'),
+              ('cashflow','/api/v1/cashflow/health'),
+              ('early-warning','/api/v1/early-warning/health'),
+              ('guidance','/api/v1/guidance/health'),
+              ('security','/api/v1/security/health'),
+          ]
+          failed = []
+          for name, path in services:
+              try:
+                  r = httpx.get(f'{base}{path}', timeout=15)
+                  print(f'{name}: {r.status_code}')
+                  if r.status_code != 200:
+                      failed.append(name)
+              except Exception as e:
+                  print(f'{name}: FAIL ({e})')
+                  failed.append(name)
+          if failed:
+              print(f'FAILED: {failed}')
+              sys.exit(1)
+          print('All services healthy!')
+          "

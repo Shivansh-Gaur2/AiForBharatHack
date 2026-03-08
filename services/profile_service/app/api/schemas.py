@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
@@ -22,7 +22,8 @@ from pydantic import BaseModel, Field, field_validator
 class PersonalInfoDTO(BaseModel):
     name: str = Field(..., min_length=2, max_length=200)
     age: int = Field(..., ge=18, le=100)
-    gender: str = Field(..., pattern=r"^[MFO]$")
+    gender: str = Field(..., pattern=r"^(M|F|O|male|female|other)$")
+    location: str = Field("", min_length=0)
     district: str = Field(..., min_length=1)
     state: str = Field(..., min_length=1)
     dependents: int = Field(0, ge=0, le=20)
@@ -30,10 +31,9 @@ class PersonalInfoDTO(BaseModel):
 
 
 class LandDetailsDTO(BaseModel):
-    total_acres: float = Field(..., ge=0, le=100)
-    irrigated_acres: float = Field(0, ge=0)
-    rain_fed_acres: float = Field(0, ge=0)
-    ownership_type: str = Field("OWNED", pattern=r"^(OWNED|LEASED|TENANT)$")
+    owned_acres: float = Field(0, ge=0, le=100)
+    leased_acres: float = Field(0, ge=0, le=100)
+    irrigated_percentage: float = Field(0, ge=0, le=100)
 
 
 class CropInfoDTO(BaseModel):
@@ -53,23 +53,16 @@ class LivestockInfoDTO(BaseModel):
 
 class MigrationInfoDTO(BaseModel):
     destination: str
-    months: list[int] = Field(..., min_length=1)
-    monthly_income: float = Field(..., ge=0)
-
-    @field_validator("months")
-    @classmethod
-    def validate_months(cls, v: list[int]) -> list[int]:
-        for m in v:
-            if m < 1 or m > 12:
-                raise ValueError(f"Invalid month: {m}")
-        return v
+    duration_months: int = Field(0, ge=0, le=12)
+    monthly_income: float = Field(0, ge=0)
+    season: str = Field("KHARIF", pattern=r"^(KHARIF|RABI|ZAID)$")
 
 
 class LivelihoodInfoDTO(BaseModel):
     primary_occupation: str
     secondary_occupations: list[str] = Field(default_factory=list)
-    land_holding: LandDetailsDTO | None = None
-    crop_patterns: list[CropInfoDTO] = Field(default_factory=list)
+    land_details: LandDetailsDTO | None = None
+    crops: list[CropInfoDTO] = Field(default_factory=list)
     livestock: list[LivestockInfoDTO] = Field(default_factory=list)
     migration_patterns: list[MigrationInfoDTO] = Field(default_factory=list)
 
@@ -93,7 +86,7 @@ class SeasonalFactorDTO(BaseModel):
     season: str = Field(..., pattern=r"^(KHARIF|RABI|ZAID)$")
     income_multiplier: float = Field(..., gt=0)
     expense_multiplier: float = Field(..., gt=0)
-    notes: str = ""
+    description: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -141,13 +134,10 @@ class VolatilityMetricsDTO(BaseModel):
 class ProfileSummaryDTO(BaseModel):
     profile_id: str
     name: str
-    district: str
-    state: str
-    primary_occupation: str
-    estimated_annual_income: float
-    volatility_category: str | None = None
-    created_at: datetime
-    updated_at: datetime
+    location: str
+    occupation: str
+    volatility_level: str | None = None
+    created_at: str
 
 
 class ProfileDetailDTO(BaseModel):
@@ -167,9 +157,9 @@ class ProfileDetailDTO(BaseModel):
 
 
 class PaginatedProfilesDTO(BaseModel):
-    profiles: list[ProfileSummaryDTO]
-    next_cursor: str | None = None
-    count: int
+    items: list[ProfileSummaryDTO]
+    cursor: str | None = None
+    has_more: bool = False
 
 
 class ErrorDTO(BaseModel):

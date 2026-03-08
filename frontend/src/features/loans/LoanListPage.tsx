@@ -12,7 +12,7 @@ import {
   AlertBanner,
   EmptyState,
 } from "@/components/ui";
-import { formatCurrency, formatDate, formatEnum } from "@/lib/utils";
+import { formatCurrency, formatEnum } from "@/lib/utils";
 import { LOAN_STATUS_COLORS } from "@/lib/colors";
 
 export function LoanListPage() {
@@ -91,9 +91,7 @@ export function LoanListPage() {
                     </h3>
                     <p className="text-sm text-gray-500">
                       {formatEnum(loan.source_type)} ·{" "}
-                      {formatCurrency(loan.terms.principal)} @{" "}
-                      {loan.terms.interest_rate_annual}% for{" "}
-                      {loan.terms.tenure_months} months
+                      {formatCurrency(loan.principal)}
                     </p>
                   </div>
                   <Badge
@@ -102,7 +100,7 @@ export function LoanListPage() {
                   />
                 </div>
 
-                <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
+                <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-gray-400">Outstanding</p>
                     <p className="font-semibold text-gray-900">
@@ -110,15 +108,9 @@ export function LoanListPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-400">EMI</p>
+                    <p className="text-gray-400">Monthly EMI</p>
                     <p className="font-semibold text-gray-900">
-                      {formatCurrency(loan.terms.emi_amount)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Disbursed</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatDate(loan.disbursement_date)}
+                      {formatCurrency(loan.monthly_obligation)}
                     </p>
                   </div>
                 </div>

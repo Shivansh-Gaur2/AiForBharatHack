@@ -93,6 +93,19 @@ class GuidanceService:
         exposure = await self._loan.get_debt_exposure(profile_id)
         household_expense = await self._profile.get_household_expense(profile_id)  # noqa: F841
 
+        # Record data lineage (fire-and-forget)
+        try:
+            from services.shared.lineage import record_data_access
+            await record_data_access(
+                profile_id=profile_id,
+                accessed_by="guidance",
+                access_type="READ",
+                fields_accessed=["risk_category", "risk_score", "forecast_projections", "debt_exposure", "household_expense"],
+                purpose="credit guidance generation",
+            )
+        except Exception:
+            pass
+
         dti_ratio = exposure.get("dti_ratio", 0.0) if exposure else 0.0
         monthly_obligations = exposure.get("monthly_obligations", 0.0) if exposure else 0.0
 

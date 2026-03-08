@@ -99,6 +99,36 @@ def _lineage_to_dto(r: DataLineageRecord) -> LineageRecordDTO:
 # ---------------------------------------------------------------------------
 # Consent Routes (Req 9.3)
 # ---------------------------------------------------------------------------
+
+
+@router.get("/stats")
+async def get_security_stats():
+    """Aggregate security statistics for the dashboard."""
+    svc = get_security_service()
+    # Consent stats
+    total_consents = len(svc._consent._consents) if hasattr(svc._consent, "_consents") else 0
+    active_consents = sum(
+        1 for c in (svc._consent._consents.values() if hasattr(svc._consent, "_consents") else [])
+        if c.is_active()
+    )
+    # Audit stats
+    total_audit = len(svc._audit._audit_entries) if hasattr(svc._audit, "_audit_entries") else 0
+    # Lineage stats
+    total_lineage = len(svc._lineage._lineage) if hasattr(svc._lineage, "_lineage") else 0
+    # Retention stats
+    active_policies = sum(
+        1 for p in (svc._retention._policies.values() if hasattr(svc._retention, "_policies") else [])
+        if p.is_active
+    )
+    return {
+        "total_consents": total_consents,
+        "active_consents": active_consents,
+        "total_audit_entries": total_audit,
+        "total_lineage_records": total_lineage,
+        "retention_policies_active": active_policies,
+    }
+
+
 @router.post("/consent", response_model=ConsentDTO, status_code=201)
 async def grant_consent(req: GrantConsentRequest):
     """Grant consent for a specific data-use purpose."""

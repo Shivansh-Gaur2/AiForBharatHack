@@ -1,0 +1,138 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Frontend (Vite)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/frontend",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Profile Service (8001)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["services.profile_service.app.main:app", "--host", "127.0.0.1", "--port", "8001"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true
+    },
+    {
+      "name": "Loan Tracker (8002)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["services.loan_tracker.app.main:app", "--host", "127.0.0.1", "--port", "8002"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true
+    },
+    {
+      "name": "Risk Assessment (8003)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["services.risk_assessment.app.main:app", "--host", "127.0.0.1", "--port", "8003"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true
+    },
+    {
+      "name": "Cashflow Service (8004)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["services.cashflow_service.app.main:app", "--host", "127.0.0.1", "--port", "8004"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true
+    },
+    {
+      "name": "Early Warning (8005)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["services.early_warning.app.main:app", "--host", "127.0.0.1", "--port", "8005"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true
+    },
+    {
+      "name": "Guidance (8006)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["services.guidance.app.main:app", "--host", "127.0.0.1", "--port", "8006"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true
+    },
+    {
+      "name": "Security (8007)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["services.security.app.main:app", "--host", "127.0.0.1", "--port", "8007"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true
+    },
+    {
+      "name": "Docker Infra (DynamoDB + LocalStack)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "docker-compose",
+      "runtimeArgs": ["-f", "infra/docker-compose.yml", "up"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Run All Tests (pytest)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-v"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ],
+  "compounds": [
+    {
+      "name": "All Backend Services",
+      "configurations": [
+        "Profile Service (8001)",
+        "Loan Tracker (8002)",
+        "Risk Assessment (8003)",
+        "Cashflow Service (8004)",
+        "Early Warning (8005)",
+        "Guidance (8006)",
+        "Security (8007)"
+      ]
+    },
+    {
+      "name": "Full Stack (Frontend + All Backends)",
+      "configurations": [
+        "Frontend (Vite)",
+        "Profile Service (8001)",
+        "Loan Tracker (8002)",
+        "Risk Assessment (8003)",
+        "Cashflow Service (8004)",
+        "Early Warning (8005)",
+        "Guidance (8006)",
+        "Security (8007)"
+      ]
+    }
+  ]
+}

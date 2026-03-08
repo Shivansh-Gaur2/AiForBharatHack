@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AI Advisor Service - Conversational AI for rural credit guidance
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.12
+    MemorySize: 512
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+        ENVIRONMENT: production
+
+Resources:
+  AIAdvisorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: services.ai_advisor.app.main.handler
+      CodeUri: ../../
+      Description: AI Advisor - conversational credit guidance
+      Environment:
+        Variables:
+          BEDROCK_MODEL_ID: !Ref BedrockModelId
+          BEDROCK_REGION: !Ref BedrockRegion
+          USE_STUB_LLM: "false"
+          PROFILE_SERVICE_URL: !Ref ProfileServiceUrl
+          RISK_SERVICE_URL: !Ref RiskServiceUrl
+          CASHFLOW_SERVICE_URL: !Ref CashFlowServiceUrl
+          LOAN_SERVICE_URL: !Ref LoanServiceUrl
+          EARLY_WARNING_SERVICE_URL: !Ref EarlyWarningServiceUrl
+          GUIDANCE_SERVICE_URL: !Ref GuidanceServiceUrl
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+Parameters:
+  BedrockModelId:
+    Type: String
+    Default: us.amazon.nova-micro-v1:0
+  BedrockRegion:
+    Type: String
+    Default: us-east-1
+  ProfileServiceUrl:
+    Type: String
+  RiskServiceUrl:
+    Type: String
+  CashFlowServiceUrl:
+    Type: String
+  LoanServiceUrl:
+    Type: String
+  EarlyWarningServiceUrl:
+    Type: String
+  GuidanceServiceUrl:
+    Type: String

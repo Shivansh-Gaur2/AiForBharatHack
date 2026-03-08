@@ -17,6 +17,7 @@ from .schemas import (
     LoanTermsDTO,
     PaginatedLoansDTO,
     RecordRepaymentRequest,
+    RepaymentRecordDTO,
     SourceExposureDTO,
     TrackLoanRequest,
     UpdateLoanStatusRequest,
@@ -65,6 +66,15 @@ def _loan_to_detail(loan: Loan) -> LoanDetailDTO:
         on_time_ratio=loan.get_on_time_ratio(),
         monthly_obligation=loan.get_monthly_obligation(),
         repayment_count=len(loan.repayments),
+        repayments=[
+            RepaymentRecordDTO(
+                date=r.date,
+                amount=r.amount,
+                is_late=r.is_late,
+                days_overdue=r.days_overdue,
+            )
+            for r in loan.repayments
+        ],
         purpose=loan.purpose,
         notes=loan.notes,
         created_at=loan.created_at,

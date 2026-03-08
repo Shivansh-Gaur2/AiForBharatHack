@@ -95,3 +95,26 @@ class ProfileDataProvider(Protocol):
     async def get_household_expense(self, profile_id: ProfileId) -> float:
         """Returns monthly household expense estimate."""
         ...
+
+    async def get_phone_number(self, profile_id: ProfileId) -> str | None:
+        """Returns the borrower's phone number, or None if unavailable."""
+        ...
+
+    async def get_preferred_language(self, profile_id: ProfileId) -> str:
+        """Returns preferred language code (e.g. 'en', 'hi', 'ta')."""
+        ...
+
+
+# ---------------------------------------------------------------------------
+# Notification Ports
+# ---------------------------------------------------------------------------
+class SmsNotifier(Protocol):
+    """Port for sending SMS notifications to borrowers."""
+
+    async def send_alert_sms(
+        self,
+        phone_number: str,
+        message: str,
+    ) -> bool:
+        """Send an SMS message. Returns True on success."""
+        ...

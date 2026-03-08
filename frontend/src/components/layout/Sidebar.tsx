@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Compass,
   Lock,
+  Bot,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { to: "/alerts", label: "Alerts", icon: AlertTriangle },
   { to: "/guidance", label: "Guidance", icon: Compass },
   { to: "/security", label: "Security", icon: Lock },
+  { to: "/advisor", label: "AI Advisor", icon: Bot },
 ] as const;
 
 export function Sidebar() {

@@ -16,3 +16,23 @@ export { riskApi } from "./risk";
 export { cashflowApi } from "./cashflow";
 export { alertApi } from "./alerts";
 export { guidanceApi } from "./guidance";
+export { securityApi } from "./security";
+export type {
+  ConsentDTO,
+  ConsentListDTO,
+  AuditEntryDTO,
+  AuditLogDTO,
+  LineageRecordDTO,
+  DataUsageSummaryDTO,
+  RetentionPolicyDTO,
+  SecurityStats,
+} from "./security";
+export { aiAdvisorApi } from "./advisor";
+export type {
+  ConversationResponse,
+  ConversationDetail,
+  ConversationListItem,
+  MessageDTO,
+  QuickAnalysisResponse,
+  ScenarioAnalysisResponse,
+} from "./advisor";

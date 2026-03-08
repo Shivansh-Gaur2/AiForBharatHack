@@ -14,12 +14,12 @@ import { formatCurrency, formatDate, formatEnum, formatPercent } from "@/lib/uti
 import { LOAN_STATUS_COLORS } from "@/lib/colors";
 
 export function LoanDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { trackingId } = useParams<{ trackingId: string }>();
 
   const { data: loan, isLoading, error } = useQuery({
-    queryKey: ["loan", id],
-    queryFn: () => loanApi.get(id!),
-    enabled: !!id,
+    queryKey: ["loan", trackingId],
+    queryFn: () => loanApi.get(trackingId!),
+    enabled: !!trackingId,
   });
 
   if (isLoading) return <PageSpinner />;
@@ -145,24 +145,26 @@ export function LoanDetailPage() {
                   <tr className="border-b border-gray-100 text-left text-xs text-gray-400">
                     <th className="pb-2">Date</th>
                     <th className="pb-2 text-right">Amount</th>
-                    <th className="pb-2 text-right">Principal</th>
-                    <th className="pb-2 text-right">Interest</th>
+                    <th className="pb-2 text-right">Status</th>
+                    <th className="pb-2 text-right">Days Overdue</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {loan.repayments.map((r, i) => (
                     <tr key={i}>
                       <td className="py-2 text-gray-700">
-                        {formatDate(r.repayment_date)}
+                        {formatDate(r.date)}
                       </td>
                       <td className="py-2 text-right font-medium">
                         {formatCurrency(r.amount)}
                       </td>
-                      <td className="py-2 text-right text-gray-500">
-                        {formatCurrency(r.principal_component)}
+                      <td className="py-2 text-right">
+                        <span className={r.is_late ? "text-red-500" : "text-green-600"}>
+                          {r.is_late ? "Late" : "On time"}
+                        </span>
                       </td>
                       <td className="py-2 text-right text-gray-500">
-                        {formatCurrency(r.interest_component)}
+                        {r.days_overdue > 0 ? `${r.days_overdue}d` : "—"}
                       </td>
                     </tr>
                   ))}

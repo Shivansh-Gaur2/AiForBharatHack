@@ -11,11 +11,10 @@ export interface LoanTerms {
 }
 
 export interface RepaymentRecord {
-  repayment_date: string;
+  date: string;
   amount: number;
-  principal_component: number;
-  interest_component: number;
-  penalty: number;
+  is_late: boolean;
+  days_overdue: number;
 }
 
 export interface SourceExposure {
@@ -35,12 +34,28 @@ export interface LoanDetail {
   terms: LoanTerms;
   status: LoanStatus;
   disbursement_date: string;
-  maturity_date: string;
+  maturity_date: string | null;
   outstanding_balance: number;
   total_repaid: number;
+  repayment_rate: number;
+  on_time_ratio: number;
+  monthly_obligation: number;
+  repayment_count: number;
   repayments: RepaymentRecord[];
+  purpose: string;
+  notes: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface LoanSummary {
+  tracking_id: string;
+  lender_name: string;
+  source_type: LoanSourceType;
+  principal: number;
+  outstanding_balance: number;
+  status: LoanStatus;
+  monthly_obligation: number;
 }
 
 export interface DebtExposure {
@@ -71,14 +86,12 @@ export interface TrackLoanRequest {
 }
 
 export interface RecordRepaymentRequest {
+  date: string;
   amount: number;
-  principal_component: number;
-  interest_component: number;
-  penalty?: number;
-  repayment_date?: string;
+  is_late?: boolean;
+  days_overdue?: number;
 }
 
 export interface UpdateLoanStatusRequest {
   status: LoanStatus;
-  reason?: string;
 }

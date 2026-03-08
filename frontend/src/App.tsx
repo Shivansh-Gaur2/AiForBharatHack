@@ -9,6 +9,7 @@ import { CashFlowPage } from "@/features/cashflow";
 import { AlertsPage, ScenarioPage } from "@/features/alerts";
 import { GuidancePage } from "@/features/guidance";
 import { SecurityPage } from "@/features/security";
+import { AIAdvisorPage } from "@/features/advisor";
 
 export function App() {
   return (
@@ -52,6 +53,9 @@ export function App() {
 
         {/* Security */}
         <Route path="security" element={<SecurityPage />} />
+
+        {/* AI Advisor */}
+        <Route path="advisor" element={<AIAdvisorPage />} />
 
         {/* Fallback */}
         <Route

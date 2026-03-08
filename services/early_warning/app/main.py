@@ -127,6 +127,13 @@ else:
     event_publisher = AsyncInMemoryEventPublisher()
     logger.info("Using AsyncInMemoryEventPublisher (memory mode or no SNS topic)")
 
+# SMS Notifier
+from .infrastructure.sms_notifier import create_sms_notifier
+
+sms_enabled = getattr(settings, "sms_enabled", False) or settings.storage_backend == "dynamodb"
+sms_notifier = create_sms_notifier(enabled=sms_enabled, region_name=settings.aws_region)
+logger.info("SMS notifier: %s", type(sms_notifier).__name__)
+
 # Assemble service
 early_warning_service = EarlyWarningService(
     repo=repo,
@@ -135,6 +142,7 @@ early_warning_service = EarlyWarningService(
     loan_provider=loan_provider,
     profile_provider=profile_provider,
     events=event_publisher,
+    sms_notifier=sms_notifier,
 )
 set_early_warning_service(early_warning_service)
 
