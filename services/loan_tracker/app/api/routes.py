@@ -269,3 +269,10 @@ async def get_exposure(
         total_loan_count=exposure.total_loan_count,
         computed_at=exposure.computed_at,
     )
+
+
+@router.delete("/borrower/{profile_id}", status_code=204)
+async def delete_borrower_loans(profile_id: str):
+    """Delete all loan records for a borrower (cascade on profile deletion)."""
+    svc = get_loan_service()
+    await svc.delete_profile_data(profile_id)

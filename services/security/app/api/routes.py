@@ -355,3 +355,13 @@ async def initialize_policies():
         ],
         count=len(policies),
     )
+
+
+@router.delete("/profile/{profile_id}", status_code=204)
+async def delete_profile_security_data(profile_id: str):
+    """Delete consent grants and lineage records for a profile.
+
+    Audit logs are preserved as an immutable audit trail.
+    """
+    svc = get_security_service()
+    await svc.delete_profile_data(profile_id)

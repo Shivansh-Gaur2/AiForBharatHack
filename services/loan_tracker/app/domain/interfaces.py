@@ -30,6 +30,8 @@ class LoanRepository(Protocol):
 
     async def delete(self, tracking_id: TrackingId) -> bool: ...
 
+    async def delete_by_profile(self, profile_id: ProfileId) -> int: ...
+
     async def list_all(
         self,
         limit: int = 20,

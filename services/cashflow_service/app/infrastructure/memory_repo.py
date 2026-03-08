@@ -65,3 +65,15 @@ class InMemoryCashFlowRepository:
         ids = self._records_by_profile.get(profile_id, [])
         recent = ids[-limit:]
         return [self._records[rid] for rid in recent if rid in self._records]
+
+    async def delete_by_profile(self, profile_id: ProfileId) -> int:
+        count = 0
+        forecast_ids = self._forecasts_by_profile.pop(profile_id, [])
+        for fid in forecast_ids:
+            self._forecasts.pop(fid, None)
+            count += 1
+        record_ids = self._records_by_profile.pop(profile_id, [])
+        for rid in record_ids:
+            self._records.pop(rid, None)
+            count += 1
+        return count

@@ -55,4 +55,7 @@ export const profileApi = {
     httpClient
       .get<VolatilityMetrics>(`${BASE}/${id}/volatility`)
       .then((r) => r.data),
+
+  delete: (id: string) =>
+    httpClient.delete(`${BASE}/${id}`).then((r) => r.data),
 };

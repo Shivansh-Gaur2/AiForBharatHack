@@ -177,3 +177,10 @@ class LoanTrackerService:
         """Convenience: returns just the DTI ratio (Req 2.4)."""
         exposure = await self.get_total_exposure(profile_id, annual_income)
         return exposure.debt_to_income_ratio
+
+    async def delete_profile_data(self, profile_id: ProfileId) -> int:
+        """Delete all loan records for a profile (cascade on profile deletion).
+
+        Returns the number of loans deleted.
+        """
+        return await self._repo.delete_by_profile(profile_id)

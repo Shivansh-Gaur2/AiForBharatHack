@@ -368,3 +368,10 @@ async def get_timing_recommendations(profile_id: str):
         )
         for w in windows
     ]
+
+
+@router.delete("/profile/{profile_id}", status_code=204)
+async def delete_profile_cashflow(profile_id: str):
+    """Delete all cashflow records and forecasts for a profile (cascade on profile deletion)."""
+    svc = get_cashflow_service()
+    await svc.delete_profile_data(profile_id)

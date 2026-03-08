@@ -34,6 +34,8 @@ class CashFlowRepository(Protocol):
         self, profile_id: ProfileId, limit: int = 200,
     ) -> list[CashFlowRecord]: ...
 
+    async def delete_by_profile(self, profile_id: ProfileId) -> int: ...
+
 
 class WeatherDataProvider(Protocol):
     """Port for fetching weather/climate data (external adapter)."""

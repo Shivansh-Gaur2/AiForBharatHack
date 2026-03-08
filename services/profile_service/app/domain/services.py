@@ -221,6 +221,22 @@ class ProfileService:
         self._repo.save(profile)
         return metrics
 
+    def delete_profile(self, profile_id: ProfileId) -> None:
+        """Permanently delete a borrower profile.
+
+        Raises KeyError if the profile does not exist.
+        """
+        self._get_profile_or_raise(profile_id)  # ensures 404 if missing
+        self._repo.delete(profile_id)
+
+        self._events.publish(DomainEvent(
+            event_type="profile.deleted",
+            aggregate_id=profile_id,
+            payload={"profile_id": profile_id},
+        ))
+
+        logger.info("Deleted profile %s", profile_id)
+
     def list_profiles(
         self, limit: int = 50, cursor: str | None = None
     ) -> tuple[list[BorrowerProfile], str | None]:

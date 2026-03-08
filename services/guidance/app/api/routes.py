@@ -321,3 +321,10 @@ async def expire_guidance(guidance_id: str):
         return _guidance_to_dto(guidance)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from None
+
+
+@router.delete("/profile/{profile_id}", status_code=204)
+async def delete_profile_guidance(profile_id: str):
+    """Delete all guidance records for a profile (cascade on profile deletion)."""
+    svc = get_guidance_service()
+    await svc.delete_profile_data(profile_id)

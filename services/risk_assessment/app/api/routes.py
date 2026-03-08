@@ -198,3 +198,10 @@ async def explain_risk(assessment_id: str):
     if explanation is None:
         raise HTTPException(status_code=404, detail="Assessment not found")
     return RiskExplainDTO(**explanation)
+
+
+@router.delete("/profile/{profile_id}", status_code=204)
+async def delete_profile_assessments(profile_id: str):
+    """Delete all risk assessments for a profile (cascade on profile deletion)."""
+    svc = get_risk_service()
+    await svc.delete_profile_data(profile_id)

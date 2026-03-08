@@ -309,3 +309,13 @@ class SecurityService:
             "action": policy.action.value,
             "reason": f"Data {'has' if expired else 'has not'} exceeded {policy.retention_days}-day retention",
         }
+
+    async def delete_profile_data(self, profile_id: ProfileId) -> int:
+        """Delete consent grants and lineage records for a profile.
+
+        Audit logs are intentionally preserved as an immutable audit trail.
+        Returns total number of records deleted.
+        """
+        consent_count = await self._consent.delete_by_profile(profile_id)
+        lineage_count = await self._lineage.delete_by_profile(profile_id)
+        return consent_count + lineage_count

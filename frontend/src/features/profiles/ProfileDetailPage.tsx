@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { useParams, Link } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   MapPin,
@@ -8,6 +8,7 @@ import {
   Briefcase,
   TrendingUp,
   Wheat,
+  Trash2,
 } from "lucide-react";
 import { profileApi } from "@/api";
 import {
@@ -25,6 +26,22 @@ import { VolatilityCard } from "./VolatilityCard";
 
 export function ProfileDetailPage() {
   const { profileId: id } = useParams<{ profileId: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: () => profileApi.delete(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profiles"] });
+      navigate("/profiles");
+    },
+  });
+
+  const handleDelete = () => {
+    if (window.confirm("Delete this profile permanently? This cannot be undone.")) {
+      deleteMutation.mutate();
+    }
+  };
 
   const { data: profile, isLoading, error } = useQuery({
     queryKey: ["profile", id],
@@ -87,6 +104,16 @@ export function ProfileDetailPage() {
             <Link to={`/guidance?profile=${id}`}>
               <Button size="sm">Get Guidance</Button>
             </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </Button>
           </div>
         </div>
       </Card>

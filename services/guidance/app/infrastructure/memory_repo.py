@@ -48,3 +48,9 @@ class InMemoryGuidanceRepository:
             if gid in self._guidance
             and self._guidance[gid].status == GuidanceStatus.ACTIVE
         ]
+
+    async def delete_by_profile(self, profile_id: ProfileId) -> int:
+        ids = self._by_profile.pop(profile_id, [])
+        for gid in ids:
+            self._guidance.pop(gid, None)
+        return len(ids)

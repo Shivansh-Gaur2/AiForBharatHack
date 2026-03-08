@@ -62,6 +62,15 @@ class InMemoryLoanRepository:
             return True
         return False
 
+    async def delete_by_profile(self, profile_id: ProfileId) -> int:
+        ids_to_delete = [
+            tid for tid, loan in self._loans.items()
+            if loan.profile_id == profile_id
+        ]
+        for tid in ids_to_delete:
+            del self._loans[tid]
+        return len(ids_to_delete)
+
     async def list_all(
         self,
         limit: int = 20,

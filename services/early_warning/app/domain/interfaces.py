@@ -39,6 +39,8 @@ class AlertRepository(Protocol):
         self, profile_id: ProfileId, limit: int = 20,
     ) -> list[SimulationResult]: ...
 
+    async def delete_by_profile(self, profile_id: ProfileId) -> int: ...
+
 
 # ---------------------------------------------------------------------------
 # Cross-Service Data Provider Ports

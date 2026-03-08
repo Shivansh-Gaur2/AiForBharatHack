@@ -35,6 +35,8 @@ class GuidanceRepository(Protocol):
         profile_id: ProfileId,
     ) -> list[CreditGuidance]: ...
 
+    async def delete_by_profile(self, profile_id: ProfileId) -> int: ...
+
 
 # ---------------------------------------------------------------------------
 # Cross-Service Data Provider Ports

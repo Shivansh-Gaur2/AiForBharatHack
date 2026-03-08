@@ -35,6 +35,8 @@ class ConsentRepository(Protocol):
 
     async def update_consent(self, consent: Consent) -> None: ...
 
+    async def delete_by_profile(self, profile_id: str) -> int: ...
+
 
 class AuditRepository(Protocol):
     """Persistence port for audit log entries."""
@@ -66,6 +68,8 @@ class DataLineageRepository(Protocol):
     async def find_records_by_category(
         self, profile_id: str, category: DataCategory,
     ) -> list[DataLineageRecord]: ...
+
+    async def delete_by_profile(self, profile_id: str) -> int: ...
 
 
 class RetentionPolicyRepository(Protocol):

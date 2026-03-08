@@ -451,3 +451,10 @@ async def get_simulation_history(
         items=[_simulation_to_summary(r) for r in results],
         count=len(results),
     )
+
+
+@router.delete("/profile/{profile_id}", status_code=204)
+async def delete_profile_alerts(profile_id: str):
+    """Delete all alerts and simulations for a profile (cascade on profile deletion)."""
+    svc = get_early_warning_service()
+    await svc.delete_profile_data(profile_id)

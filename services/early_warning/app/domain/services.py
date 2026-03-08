@@ -542,3 +542,10 @@ class EarlyWarningService:
         self, profile_id: ProfileId, limit: int = 20,
     ) -> list[SimulationResult]:
         return await self._repo.find_simulations_by_profile(profile_id, limit)
+
+    async def delete_profile_data(self, profile_id: ProfileId) -> int:
+        """Delete all alerts and simulations for a profile (cascade on profile deletion).
+
+        Returns the total number of records deleted.
+        """
+        return await self._repo.delete_by_profile(profile_id)

@@ -67,3 +67,15 @@ class InMemoryAlertRepository:
         ids = self._simulations_by_profile.get(profile_id, [])
         recent = ids[-limit:][::-1]
         return [self._simulations[sid] for sid in recent if sid in self._simulations]
+
+    async def delete_by_profile(self, profile_id: ProfileId) -> int:
+        count = 0
+        alert_ids = self._alerts_by_profile.pop(profile_id, [])
+        for aid in alert_ids:
+            self._alerts.pop(aid, None)
+            count += 1
+        sim_ids = self._simulations_by_profile.pop(profile_id, [])
+        for sid in sim_ids:
+            self._simulations.pop(sid, None)
+            count += 1
+        return count

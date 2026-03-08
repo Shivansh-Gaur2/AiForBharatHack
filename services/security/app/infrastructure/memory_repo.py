@@ -88,6 +88,12 @@ class InMemorySecurityRepository:
     async def update_consent(self, consent: Consent) -> None:
         self._consents[consent.consent_id] = consent
 
+    async def delete_by_profile(self, profile_id: str) -> int:
+        ids = self._consents_by_profile.pop(profile_id, [])
+        for cid in ids:
+            self._consents.pop(cid, None)
+        return len(ids)
+
     # ======================================================================
     # AuditRepository
     # ======================================================================
@@ -144,6 +150,12 @@ class InMemorySecurityRepository:
             if rid in self._lineage
             and self._lineage[rid].data_category == category
         ]
+
+    async def delete_by_profile(self, profile_id: str) -> int:
+        ids = self._lineage_by_profile.pop(profile_id, [])
+        for rid in ids:
+            self._lineage.pop(rid, None)
+        return len(ids)
 
     # ======================================================================
     # RetentionPolicyRepository

@@ -24,6 +24,8 @@ class RiskAssessmentRepository(Protocol):
         limit: int = 10,
     ) -> list[RiskAssessment]: ...
 
+    async def delete_by_profile(self, profile_id: ProfileId) -> int: ...
+
 
 class ProfileDataProvider(Protocol):
     """Port: fetches profile data needed for risk scoring.

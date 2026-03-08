@@ -297,3 +297,10 @@ class CashFlowService:
         if forecast is None:
             return None
         return forecast.timing_windows
+
+    async def delete_profile_data(self, profile_id: ProfileId) -> int:
+        """Delete all forecasts and records for a profile (cascade on profile deletion).
+
+        Returns the total number of records deleted.
+        """
+        return await self._repo.delete_by_profile(profile_id)

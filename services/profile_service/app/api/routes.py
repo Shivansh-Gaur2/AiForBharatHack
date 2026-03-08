@@ -12,8 +12,10 @@ Zero business logic here.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from services.profile_service.app.domain.models import (
@@ -434,6 +436,45 @@ def get_volatility(
         raise HTTPException(status_code=404, detail=f"Profile not found: {profile_id}") from None
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from None
+
+
+async def _cascade_delete_profile(profile_id: str) -> None:
+    """Best-effort cascade: delete all data for this profile across every service.
+
+    Failures are logged but never surface as errors — the profile is already
+    gone; we don't want to block the 204 response on downstream availability.
+    """
+    cascade_urls = [
+        f"http://127.0.0.1:8002/api/v1/loans/borrower/{profile_id}",
+        f"http://127.0.0.1:8003/api/v1/risk/profile/{profile_id}",
+        f"http://127.0.0.1:8004/api/v1/cashflow/profile/{profile_id}",
+        f"http://127.0.0.1:8005/api/v1/early-warning/profile/{profile_id}",
+        f"http://127.0.0.1:8006/api/v1/guidance/profile/{profile_id}",
+        f"http://127.0.0.1:8007/api/v1/security/profile/{profile_id}",
+    ]
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        results = await asyncio.gather(
+            *[client.delete(url) for url in cascade_urls],
+            return_exceptions=True,
+        )
+    for url, result in zip(cascade_urls, results):
+        if isinstance(result, Exception):
+            logger.warning("Cascade delete failed for %s: %s", url, result)
+        elif result.status_code not in (200, 204):
+            logger.warning("Cascade delete returned %s for %s", result.status_code, url)
+
+
+@router.delete("/{profile_id}", status_code=204)
+async def delete_profile(
+    profile_id: str,
+    svc: ProfileService = Depends(get_profile_service),
+):
+    """Permanently delete a borrower profile and cascade to all related services."""
+    try:
+        svc.delete_profile(profile_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Profile not found: {profile_id}") from None
+    await _cascade_delete_profile(profile_id)
 
 
 @router.get("", response_model=PaginatedProfilesDTO)

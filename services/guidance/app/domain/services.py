@@ -316,3 +316,10 @@ class GuidanceService:
     ) -> list[CreditGuidance]:
         """Get currently active guidance for a profile."""
         return await self._repo.find_active_guidance(profile_id)
+
+    async def delete_profile_data(self, profile_id: ProfileId) -> int:
+        """Delete all guidance records for a profile (cascade on profile deletion).
+
+        Returns the number of guidance records deleted.
+        """
+        return await self._repo.delete_by_profile(profile_id)

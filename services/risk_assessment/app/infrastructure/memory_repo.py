@@ -45,3 +45,9 @@ class InMemoryRiskRepository:
         ids = self._by_profile.get(profile_id, [])
         recent = ids[-limit:][::-1]  # most recent first
         return [self._assessments[aid] for aid in recent if aid in self._assessments]
+
+    async def delete_by_profile(self, profile_id: ProfileId) -> int:
+        ids = self._by_profile.pop(profile_id, [])
+        for aid in ids:
+            self._assessments.pop(aid, None)
+        return len(ids)
