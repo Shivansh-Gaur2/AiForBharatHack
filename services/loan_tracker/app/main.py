@@ -76,6 +76,7 @@ else:
 if settings.sns_topic_arn and settings.storage_backend == "dynamodb":
     event_publisher = create_loan_event_publisher(
         settings.sns_topic_arn, settings.aws_region,
+        endpoint_url=settings.sns_endpoint_url,
     )
     logger.info("Using SNS event publisher: %s", settings.sns_topic_arn)
 else:

@@ -47,14 +47,16 @@ class TrackLoanRequest(BaseModel):
 
 
 class RecordRepaymentRequest(BaseModel):
-    date: datetime
     amount: float = Field(gt=0)
-    is_late: bool = False
-    days_overdue: int = Field(ge=0, default=0)
+    principal_component: float = Field(ge=0, default=0.0)
+    interest_component: float = Field(ge=0, default=0.0)
+    penalty: float = Field(ge=0, default=0.0)
+    repayment_date: str | None = None  # ISO date string; defaults to today
 
 
 class UpdateLoanStatusRequest(BaseModel):
     status: LoanStatus
+    reason: str | None = None
 
 
 class GetExposureRequest(BaseModel):
@@ -65,10 +67,11 @@ class GetExposureRequest(BaseModel):
 # Response DTOs
 # ---------------------------------------------------------------------------
 class RepaymentRecordDTO(BaseModel):
-    date: datetime
+    repayment_date: str
     amount: float
-    is_late: bool
-    days_overdue: int
+    principal_component: float
+    interest_component: float
+    penalty: float
 
 
 class LoanDetailDTO(BaseModel):
@@ -86,6 +89,7 @@ class LoanDetailDTO(BaseModel):
     on_time_ratio: float
     monthly_obligation: float
     repayment_count: int
+    repayments: list[RepaymentRecordDTO] = []
     purpose: str
     notes: str
     created_at: datetime
@@ -107,6 +111,7 @@ class SourceExposureDTO(BaseModel):
     total_outstanding: float
     loan_count: int
     weighted_avg_interest: float
+    monthly_obligation: float = 0.0
 
 
 class DebtExposureDTO(BaseModel):
@@ -118,7 +123,7 @@ class DebtExposureDTO(BaseModel):
     by_source: list[SourceExposureDTO]
     active_loan_count: int
     total_loan_count: int
-    computed_at: datetime
+    assessed_at: datetime
 
 
 class PaginatedLoansDTO(BaseModel):

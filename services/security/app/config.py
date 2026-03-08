@@ -13,6 +13,7 @@ class Settings:
     dynamodb_endpoint_url: str | None = None
     dynamodb_table_name: str = "rural-credit-security"
     sns_topic_arn: str | None = None
+    sns_endpoint_url: str | None = None
     log_level: str = "INFO"
     skip_auth: bool = True
     storage_backend: str = "memory"  # "memory" | "dynamodb"
@@ -32,6 +33,7 @@ class Settings:
                 "DYNAMODB_TABLE_NAME", "rural-credit-security",
             ),
             sns_topic_arn=os.getenv("SNS_TOPIC_ARN") or None,
+            sns_endpoint_url=os.getenv("SNS_ENDPOINT_URL") or None,
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             skip_auth=os.getenv("SKIP_AUTH", "true").lower() == "true",
             storage_backend=os.getenv("STORAGE_BACKEND", "memory"),

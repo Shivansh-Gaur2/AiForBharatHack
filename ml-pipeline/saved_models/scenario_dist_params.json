@@ -1,0 +1,26 @@
+{
+  "marginal": {
+    "mu_ln": 9.872,
+    "sigma_ln": 0.8122,
+    "n_samples": 14591,
+    "median_annual_income_inr": 19438.0,
+    "ks_statistic": 0.0042,
+    "ks_p_value": 0.9556
+  },
+  "small": {
+    "mu_ln": 10.1692,
+    "sigma_ln": 0.839,
+    "n_samples": 10569,
+    "median_annual_income_inr": 26484.0,
+    "ks_statistic": 0.0097,
+    "ks_p_value": 0.2729
+  },
+  "medium": {
+    "mu_ln": 10.7131,
+    "sigma_ln": 0.7621,
+    "n_samples": 4840,
+    "median_annual_income_inr": 46161.0,
+    "ks_statistic": 0.0187,
+    "ks_p_value": 0.068
+  }
+}

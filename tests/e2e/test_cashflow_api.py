@@ -3,14 +3,14 @@
 Run with:
     python tests/e2e/test_cashflow_api.py
 
-Requires the Cash Flow service running on http://localhost:8083
+Requires the Cash Flow service running on http://localhost:8004
 """
 
 import sys
 
 import httpx
 
-BASE = "http://localhost:8083/api/v1/cashflow"
+BASE = "http://localhost:8004/api/v1/cashflow"
 
 passed = 0
 failed = 0
@@ -35,7 +35,7 @@ def main() -> None:
 
     # -- Health check -----------------------------------------------------------
     def test_health():
-        r = httpx.get("http://localhost:8083/health", timeout=5)
+        r = httpx.get("http://localhost:8004/health", timeout=5)
         assert r.status_code == 200
         assert r.json()["service"] == "cashflow"
 

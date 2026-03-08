@@ -17,7 +17,7 @@ export default defineConfig({
         changeOrigin: true,
       },
       "/api/v1/profiles": {
-        target: "http://localhost:8001",
+        target: "http://localhost:8011",
         changeOrigin: true,
       },
       "/api/v1/loans": {

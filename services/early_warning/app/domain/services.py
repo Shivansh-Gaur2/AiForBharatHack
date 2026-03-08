@@ -7,6 +7,7 @@ generates alerts, runs scenario simulations, and publishes events.
 from __future__ import annotations
 
 import logging
+import os
 
 from services.shared.events import AsyncEventPublisher, DomainEvent
 from services.shared.models import AlertType, ProfileId, RiskCategory
@@ -102,6 +103,39 @@ class EarlyWarningService:
             deviations=deviations,
             risk_category=risk_category,
         )
+
+        # ML severity override (flag-gated: EARLY_WARNING_ML_ENABLED=true)
+        if os.getenv("EARLY_WARNING_ML_ENABLED", "false").lower() == "true":
+            from services.early_warning.ml import warning_model as _ml_ew  # lazy
+            from services.shared.models import AlertSeverity as _AS
+
+            _risk_idx = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "VERY_HIGH": 3}
+            _ml_features = {
+                "income_deviation_3m":   deviations[-1].deviation_pct if deviations else 0.0,
+                "income_deviation_6m":   (
+                    sum(d.deviation_pct for d in deviations) / len(deviations)
+                    if deviations else 0.0
+                ),
+                "missed_payments_ytd":   repayment_stats.get("missed_payments", 0),
+                "days_overdue_avg":      repayment_stats.get("days_overdue_avg", 0.0),
+                "dti_ratio":             exposure.get("debt_to_income_ratio", 0.0),
+                "dti_delta_3m":          0.0,
+                "surplus_trend_slope":   (
+                    (surplus_trend[-1] - surplus_trend[0]) / max(len(surplus_trend), 1)
+                    if len(surplus_trend) >= 2 else 0.0
+                ),
+                "weather_shock_score":   0.0,
+                "market_price_shock":    0.0,
+                "seasonal_stress_flag":  0,
+                "risk_category_current": _risk_idx.get(risk_cat_str or "LOW", 0),
+                "days_since_last_alert": 0,
+            }
+            _ml_result = _ml_ew.predict(_ml_features)
+            if _ml_result is not None:
+                _ml_sev = _AS(_ml_result["severity"])
+                _sev_order = {_AS.INFO: 0, _AS.WARNING: 1, _AS.CRITICAL: 2}
+                if _sev_order.get(_ml_sev, 0) > _sev_order.get(alert.severity, 0):
+                    alert.escalate(_ml_sev, f"ML model (anomaly_score={_ml_result['anomaly_score']:.1f})")
 
         # Persist
         await self._repo.save_alert(alert)
@@ -267,6 +301,33 @@ class EarlyWarningService:
         )
         # Set profile_id on result
         object.__setattr__(result, "profile_id", profile_id)
+
+        # Monte Carlo enhancement (flag-gated: SCENARIO_ML_ENABLED=true)
+        if os.getenv("SCENARIO_ML_ENABLED", "false").lower() == "true":
+            from services.early_warning.ml import scenario_model as _ml_sc  # lazy
+
+            _annual_income = sum(inf for _, _, inf, _ in projections) if projections else 0.0
+            _profile_info  = await self._profiles.get_household_expense(profile_id)
+            _mc = _ml_sc.simulate(
+                annual_income=_annual_income,
+                land_holding_acres=2.0,
+                weather_adjustment=params.weather_adjustment,
+                market_price_change_pct=params.market_price_change_pct,
+                income_reduction_pct=params.income_reduction_pct,
+                duration_months=params.duration_months,
+                monthly_obligations=exposure.get("monthly_obligations", 0.0),
+                household_expense=household_expense,
+                start_month=projections[0][0] if projections else 1,
+                n_simulations=1_000,
+            )
+            if _mc is not None:
+                # Tighten risk level if MC says most simulations end in deficit
+                if _mc["months_in_deficit_p50"] >= 4:
+                    result.overall_risk_level = "CRITICAL"
+                elif _mc["months_in_deficit_p50"] >= 2:
+                    result.overall_risk_level = "HIGH"
+                # Attach MC distribution as an ad-hoc attribute for API consumers
+                result.mc_distribution = _mc
 
         await self._repo.save_simulation(result)
 

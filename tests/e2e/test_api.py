@@ -5,8 +5,8 @@ import sys
 
 import httpx
 
-LOAN_BASE = "http://localhost:8081/api/v1/loans"
-RISK_BASE = "http://localhost:8082/api/v1/risk"
+LOAN_BASE = "http://localhost:8002/api/v1/loans"
+RISK_BASE = "http://localhost:8003/api/v1/risk"
 
 passed = 0
 failed = 0
@@ -31,7 +31,7 @@ def main() -> None:
 
     # Health check
     def test_loan_health():
-        r = httpx.get("http://localhost:8081/health", timeout=5)
+        r = httpx.get("http://localhost:8002/health", timeout=5)
         assert r.status_code == 200
         assert r.json()["service"] == "loan-tracker"
 
@@ -173,7 +173,7 @@ def main() -> None:
 
     # Health check
     def test_risk_health():
-        r = httpx.get("http://localhost:8082/health", timeout=5)
+        r = httpx.get("http://localhost:8003/health", timeout=5)
         assert r.status_code == 200
         assert r.json()["service"] == "risk-assessment"
 

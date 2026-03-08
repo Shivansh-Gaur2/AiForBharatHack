@@ -65,6 +65,7 @@ def _record_to_dto(record: CashFlowRecord) -> CashFlowRecordDTO:
         year=record.year,
         season=record.season,
         notes=record.notes,
+        description=record.notes,
         recorded_at=record.recorded_at,
     )
 
@@ -179,7 +180,7 @@ async def record_cash_flow(req: RecordCashFlowRequest):
             month=req.month,
             year=req.year,
             season=req.season.value if req.season else None,
-            notes=req.notes,
+            notes=req.description or req.notes,
         )
         return _record_to_dto(record)
     except ValueError as e:
@@ -204,7 +205,7 @@ async def record_batch(req: BatchRecordRequest):
                 month=r.month,
                 year=r.year,
                 season=r.season,
-                notes=r.notes,
+                notes=r.description or r.notes,
             )
             for r in req.records
         ]
@@ -266,7 +267,7 @@ async def generate_forecast_direct(req: DirectForecastRequest):
                 month=r.month,
                 year=r.year,
                 season=r.season,
-                notes=r.notes,
+                notes=r.description or r.notes,
             )
             for r in req.records
         ]

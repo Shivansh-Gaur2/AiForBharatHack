@@ -17,6 +17,7 @@ from .schemas import (
     LoanTermsDTO,
     PaginatedLoansDTO,
     RecordRepaymentRequest,
+    RepaymentRecordDTO,
     SourceExposureDTO,
     TrackLoanRequest,
     UpdateLoanStatusRequest,
@@ -65,6 +66,15 @@ def _loan_to_detail(loan: Loan) -> LoanDetailDTO:
         on_time_ratio=loan.get_on_time_ratio(),
         monthly_obligation=loan.get_monthly_obligation(),
         repayment_count=len(loan.repayments),
+        repayments=[
+            RepaymentRecordDTO(
+                repayment_date=r.date.isoformat(),
+                amount=r.amount,
+                principal_component=0.0,
+                interest_component=0.0,
+                penalty=0.0,
+            ) for r in loan.repayments
+        ],
         purpose=loan.purpose,
         notes=loan.notes,
         created_at=loan.created_at,
@@ -186,13 +196,23 @@ async def get_loan(tracking_id: str):
 @router.post("/{tracking_id}/repayments", response_model=LoanDetailDTO)
 async def record_repayment(tracking_id: str, req: RecordRepaymentRequest):
     """Record a repayment against a loan."""
+    from datetime import UTC, datetime
     svc = get_loan_service()
     try:
+        # Parse repayment_date or default to now
+        if req.repayment_date:
+            try:
+                rep_date = datetime.fromisoformat(req.repayment_date.replace("Z", "+00:00"))
+            except ValueError:
+                rep_date = datetime.now(UTC)
+        else:
+            rep_date = datetime.now(UTC)
+
         repayment = RepaymentRecord(
-            date=req.date,
+            date=rep_date,
             amount=req.amount,
-            is_late=req.is_late,
-            days_overdue=req.days_overdue,
+            is_late=False,
+            days_overdue=0,
         )
         loan = await svc.record_repayment(tracking_id, repayment)
         return _loan_to_detail(loan)
@@ -252,10 +272,11 @@ async def get_exposure(
                 total_outstanding=se.total_outstanding,
                 loan_count=se.loan_count,
                 weighted_avg_interest=se.weighted_avg_interest,
+                monthly_obligation=0.0,
             )
             for se in exposure.by_source
         ],
         active_loan_count=exposure.active_loan_count,
         total_loan_count=exposure.total_loan_count,
-        computed_at=exposure.computed_at,
+        assessed_at=exposure.computed_at,
     )

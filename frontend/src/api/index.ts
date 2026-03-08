@@ -2,6 +2,16 @@ export { httpClient, ApiError } from "./client";
 export { authApi } from "./auth";
 export type { AuthUser, AuthResponse, LoginRequest, RegisterRequest } from "./auth";
 export { dashboardApi } from "./dashboard";
+export { securityApi } from "./security";
+export type {
+  ConsentRecord,
+  ConsentListResponse,
+  AuditEntry,
+  AuditLogResponse,
+  RetentionPolicy,
+  RetentionPolicyListResponse,
+  GrantConsentPayload,
+} from "./security";
 export type {
   ProfileStats,
   LoanStats,

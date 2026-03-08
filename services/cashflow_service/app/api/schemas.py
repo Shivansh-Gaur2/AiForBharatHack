@@ -27,6 +27,10 @@ class RecordCashFlowRequest(BaseModel):
     year: int = Field(ge=2000, le=2100)
     season: Season | None = None
     notes: str = ""
+    description: str = ""  # Frontend alias for notes
+
+    def get_notes(self) -> str:
+        return self.description or self.notes
 
 
 class BatchRecordRequest(BaseModel):
@@ -68,6 +72,7 @@ class CashFlowRecordDTO(BaseModel):
     year: int
     season: Season | None = None
     notes: str = ""
+    description: str = ""  # Frontend alias; always equals notes
     recorded_at: datetime
 
 

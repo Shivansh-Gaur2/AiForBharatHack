@@ -30,6 +30,7 @@ class PersonalInfo:
     state: str
     dependents: int
     phone: str | None = None
+    location: str | None = None  # village / town name
 
 
 @dataclass(frozen=True)

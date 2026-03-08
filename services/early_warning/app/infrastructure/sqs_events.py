@@ -14,6 +14,7 @@ from services.shared.events import (
 def create_early_warning_event_publisher(
     sns_topic_arn: str | None = None,
     region: str = "ap-south-1",
+    endpoint_url: str | None = None,
 ) -> AsyncEventPublisher:
     """Return an async SNS publisher when a topic ARN is provided.
 
@@ -22,5 +23,8 @@ def create_early_warning_event_publisher(
     """
     if not sns_topic_arn:
         return AsyncInMemoryEventPublisher()
-    sns_client = boto3.client("sns", region_name=region)
+    kwargs: dict = {"region_name": region}
+    if endpoint_url:
+        kwargs["endpoint_url"] = endpoint_url
+    sns_client = boto3.client("sns", **kwargs)
     return AsyncSNSEventPublisher(sns_client=sns_client, topic_arn=sns_topic_arn)

@@ -69,27 +69,54 @@ def set_profile_service(service: ProfileService) -> None:
 # DTO → Domain mappers
 # ---------------------------------------------------------------------------
 def _to_personal_info(dto) -> PersonalInfo:
+    # Normalize gender: accept "male"/"female"/"other" or "M"/"F"/"O"
+    _gender_map = {"male": "M", "female": "F", "other": "O", "Male": "M", "Female": "F", "Other": "O"}
+    gender = _gender_map.get(dto.gender, dto.gender)
     return PersonalInfo(
         name=dto.name,
         age=dto.age,
-        gender=dto.gender,
+        gender=gender,
         district=dto.district,
         state=dto.state,
-        dependents=dto.dependents,
+        dependents=getattr(dto, "dependents", 0),
         phone=dto.phone,
+        location=getattr(dto, "location", None),
     )
 
 
 def _to_livelihood_info(dto) -> LivelihoodInfo:
+    # Handle both land_details (frontend) and land_holding (legacy)
+    land_dto = getattr(dto, "land_details", None) or getattr(dto, "land_holding", None)
+    if land_dto is not None:
+        # Frontend sends owned_acres/leased_acres/irrigated_percentage
+        if hasattr(land_dto, "owned_acres"):
+            total = (land_dto.owned_acres or 0) + (land_dto.leased_acres or 0)
+            pct = (land_dto.irrigated_percentage or 0) / 100.0
+            irrigated = round(total * pct, 2)
+            rain_fed = round(total - irrigated, 2)
+            land = LandDetails(
+                total_acres=total,
+                irrigated_acres=irrigated,
+                rain_fed_acres=rain_fed,
+                ownership_type="OWNED" if (land_dto.owned_acres or 0) >= (land_dto.leased_acres or 0) else "LEASED",
+            )
+        else:
+            land = LandDetails(
+                total_acres=land_dto.total_acres,
+                irrigated_acres=land_dto.irrigated_acres,
+                rain_fed_acres=land_dto.rain_fed_acres,
+                ownership_type=land_dto.ownership_type,
+            )
+    else:
+        land = None
+
+    # Handle both crops (frontend) and crop_patterns (legacy)
+    crop_list = getattr(dto, "crops", None) or getattr(dto, "crop_patterns", [])
+
     return LivelihoodInfo(
         primary_occupation=OccupationType(dto.primary_occupation),
         secondary_occupations=[OccupationType(o) for o in dto.secondary_occupations],
-        land_holding=LandDetails(
-            total_acres=dto.land_holding.total_acres,
-            irrigated_acres=dto.land_holding.irrigated_acres,
-            rain_fed_acres=dto.land_holding.rain_fed_acres,
-            ownership_type=dto.land_holding.ownership_type,
-        ) if dto.land_holding else None,
+        land_holding=land,
         crop_patterns=[
             CropInfo(
                 crop_name=c.crop_name,
@@ -97,7 +124,7 @@ def _to_livelihood_info(dto) -> LivelihoodInfo:
                 area_acres=c.area_acres,
                 expected_yield_quintals=c.expected_yield_quintals,
                 expected_price_per_quintal=c.expected_price_per_quintal,
-            ) for c in dto.crop_patterns
+            ) for c in crop_list
         ],
         livestock=[
             LivestockInfo(
@@ -110,7 +137,9 @@ def _to_livelihood_info(dto) -> LivelihoodInfo:
         migration_patterns=[
             MigrationInfo(
                 destination=m.destination,
-                months=m.months,
+                # Frontend sends duration_months; convert to list of months
+                months=list(range(1, min(int(getattr(m, "duration_months", 0)), 12) + 1))
+                       if hasattr(m, "duration_months") else getattr(m, "months", []),
                 monthly_income=m.monthly_income,
             ) for m in dto.migration_patterns
         ],
@@ -121,7 +150,9 @@ def _to_income_records(dtos) -> list[IncomeRecord]:
     return [
         IncomeRecord(
             month=r.month, year=r.year, amount=r.amount,
-            source=r.source, is_verified=r.is_verified,
+            source=r.source,
+            # Frontend sends is_recurring; map to is_verified
+            is_verified=getattr(r, "is_recurring", getattr(r, "is_verified", False)),
         ) for r in dtos
     ]
 
@@ -140,7 +171,8 @@ def _to_seasonal_factors(dtos) -> list[SeasonalFactor]:
             season=Season(f.season),
             income_multiplier=f.income_multiplier,
             expense_multiplier=f.expense_multiplier,
-            notes=f.notes,
+            # Frontend sends description; backend domain uses notes
+            notes=getattr(f, "description", getattr(f, "notes", "")),
         ) for f in dtos
     ]
 
@@ -167,6 +199,7 @@ def _to_profile_detail(profile) -> ProfileDetailDTO:
             name=profile.personal_info.name,
             age=profile.personal_info.age,
             gender=profile.personal_info.gender,
+            location=getattr(profile.personal_info, "location", None),
             district=profile.personal_info.district,
             state=profile.personal_info.state,
             dependents=profile.personal_info.dependents,
@@ -175,13 +208,16 @@ def _to_profile_detail(profile) -> ProfileDetailDTO:
         livelihood_info=LivelihoodInfoDTO(
             primary_occupation=profile.livelihood_info.primary_occupation.value,
             secondary_occupations=[o.value for o in profile.livelihood_info.secondary_occupations],
-            land_holding=LandDetailsDTO(
-                total_acres=profile.livelihood_info.land_holding.total_acres,
-                irrigated_acres=profile.livelihood_info.land_holding.irrigated_acres,
-                rain_fed_acres=profile.livelihood_info.land_holding.rain_fed_acres,
-                ownership_type=profile.livelihood_info.land_holding.ownership_type,
+            land_details=LandDetailsDTO(
+                owned_acres=profile.livelihood_info.land_holding.total_acres if profile.livelihood_info.land_holding else 0,
+                leased_acres=0,
+                irrigated_percentage=round(
+                    (profile.livelihood_info.land_holding.irrigated_acres / profile.livelihood_info.land_holding.total_acres * 100)
+                    if profile.livelihood_info.land_holding and profile.livelihood_info.land_holding.total_acres > 0 else 0,
+                    1,
+                ),
             ) if profile.livelihood_info.land_holding else None,
-            crop_patterns=[
+            crops=[
                 CropInfoDTO(
                     crop_name=c.crop_name, season=c.season.value,
                     area_acres=c.area_acres,
@@ -197,7 +233,8 @@ def _to_profile_detail(profile) -> ProfileDetailDTO:
             ],
             migration_patterns=[
                 MigrationInfoDTO(
-                    destination=m.destination, months=m.months,
+                    destination=m.destination,
+                    duration_months=len(m.months),
                     monthly_income=m.monthly_income,
                 ) for m in profile.livelihood_info.migration_patterns
             ],
@@ -205,7 +242,7 @@ def _to_profile_detail(profile) -> ProfileDetailDTO:
         income_records=[
             IncomeRecordDTO(
                 month=r.month, year=r.year, amount=r.amount,
-                source=r.source, is_verified=r.is_verified,
+                source=r.source, is_recurring=r.is_verified,
             ) for r in profile.income_records
         ],
         expense_records=[
@@ -219,7 +256,7 @@ def _to_profile_detail(profile) -> ProfileDetailDTO:
                 season=f.season.value,
                 income_multiplier=f.income_multiplier,
                 expense_multiplier=f.expense_multiplier,
-                notes=f.notes,
+                description=f.notes,
             ) for f in profile.seasonal_factors
         ],
         volatility_metrics=VolatilityMetricsDTO(
@@ -242,11 +279,12 @@ def _to_profile_summary(profile) -> ProfileSummaryDTO:
     return ProfileSummaryDTO(
         profile_id=profile.profile_id,
         name=profile.personal_info.name,
+        location=getattr(profile.personal_info, "location", None),
         district=profile.personal_info.district,
         state=profile.personal_info.state,
-        primary_occupation=profile.livelihood_info.primary_occupation.value,
+        occupation=profile.livelihood_info.primary_occupation.value,
         estimated_annual_income=profile.estimate_annual_income(),
-        volatility_category=profile.volatility_metrics.volatility_category
+        volatility_level=profile.volatility_metrics.volatility_category
         if profile.volatility_metrics else None,
         created_at=profile.created_at,
         updated_at=profile.updated_at,
@@ -434,7 +472,8 @@ def list_profiles(
     """List profiles with cursor-based pagination."""
     profiles, next_cursor = svc.list_profiles(limit=limit, cursor=cursor)
     return PaginatedProfilesDTO(
-        profiles=[_to_profile_summary(p) for p in profiles],
-        next_cursor=next_cursor,
+        items=[_to_profile_summary(p) for p in profiles],
+        cursor=next_cursor,
+        has_more=next_cursor is not None,
         count=len(profiles),
     )

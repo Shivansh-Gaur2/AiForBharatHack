@@ -6,6 +6,8 @@ Publishes domain events on forecast generation (Property 6).
 
 from __future__ import annotations
 
+import os
+
 from services.shared.events import AsyncEventPublisher, DomainEvent
 from services.shared.models import ProfileId, generate_id
 
@@ -183,6 +185,45 @@ class CashFlowService:
             market_adjustment=market_adj,
             loan_tenure_months=loan_tenure_months,
         )
+
+        # ML-enhanced projections (flag-gated: CASHFLOW_ML_ENABLED=true)
+        if os.getenv("CASHFLOW_ML_ENABLED", "false").lower() == "true":
+            from services.cashflow_service.ml import cashflow_model as _ml_cf  # lazy
+            from .models import ForecastConfidence, MonthlyProjection
+
+            _inflows  = [r.amount for r in records if r.direction == FlowDirection.INFLOW]
+            _outflows = [r.amount for r in records if r.direction == FlowDirection.OUTFLOW]
+            _avg_in   = sum(_inflows)  / max(len(_inflows),  1) if _inflows  else None
+            _avg_out  = sum(_outflows) / max(len(_outflows), 1) if _outflows else None
+            _has_irr  = bool(profile_info.get("has_irrigation", False))
+
+            _ml_horizon = _ml_cf.predict_horizon(
+                start_month=forecast.forecast_period_start_month,
+                start_year=forecast.forecast_period_start_year,
+                horizon_months=horizon_months,
+                has_irrigation=_has_irr,
+                weather_adjustment=weather_adj,
+                market_adjustment=market_adj,
+                profile_avg_inflow=_avg_in,
+                profile_avg_outflow=_avg_out,
+            )
+            if _ml_horizon is not None:
+                _conf = ForecastConfidence.HIGH if len(_inflows) >= 6 else ForecastConfidence.MEDIUM
+                forecast.monthly_projections = [
+                    MonthlyProjection(
+                        month=p["month"],
+                        year=p["year"],
+                        projected_inflow=p["predicted_inflow"],
+                        projected_outflow=p["predicted_outflow"],
+                        net_cash_flow=round(
+                            p["predicted_inflow"] - p["predicted_outflow"], 2,
+                        ),
+                        confidence=_conf,
+                        notes="ridge-seasonal-v1",
+                    )
+                    for p in _ml_horizon
+                ]
+                forecast.model_version = "ridge-seasonal-v1"
 
         # 5) Persist
         await self._repo.save_forecast(forecast)

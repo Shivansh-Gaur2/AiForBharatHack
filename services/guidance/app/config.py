@@ -11,6 +11,7 @@ class Settings:
     dynamodb_table_name: str = "rural-credit-guidance"
     dynamodb_endpoint_url: str | None = None
     sns_topic_arn: str | None = None
+    sns_endpoint_url: str | None = None
     aws_region: str = "ap-south-1"
     risk_service_url: str | None = None
     cashflow_service_url: str | None = None
@@ -31,6 +32,7 @@ class Settings:
             dynamodb_table_name=os.getenv("DYNAMODB_TABLE_NAME", "rural-credit-guidance"),
             dynamodb_endpoint_url=os.getenv("DYNAMODB_ENDPOINT_URL"),
             sns_topic_arn=os.getenv("SNS_TOPIC_ARN"),
+            sns_endpoint_url=os.getenv("SNS_ENDPOINT_URL"),
             aws_region=os.getenv("AWS_REGION", "ap-south-1"),
             risk_service_url=os.getenv("RISK_SERVICE_URL"),
             cashflow_service_url=os.getenv("CASHFLOW_SERVICE_URL"),
