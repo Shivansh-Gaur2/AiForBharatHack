@@ -119,7 +119,7 @@ export function CashFlowPage() {
           message={
             generateMutation.error instanceof Error
               ? generateMutation.error.message
-              : "Forecast generation failed"
+              : "Forecast generation failed. Ensure you have at least 3 cash flow records across 3 different months with at least one income (inflow) entry."
           }
         />
       )}

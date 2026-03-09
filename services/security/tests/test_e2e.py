@@ -1,7 +1,7 @@
 """End-to-end tests for the Security & Privacy service.
 
-Hits the running service on http://localhost:8086.
-Run after: uvicorn services.security.app.main:app --port 8086
+Hits the running service on http://127.0.0.1:8007.
+Run after: uvicorn services.security.app.main:app --host 127.0.0.1 --port 8007
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import pytest
 
 pytestmark = pytest.mark.e2e  # requires running service — skipped by default
 
-BASE = "http://localhost:8007/api/v1/security"
+BASE = "http://127.0.0.1:8007/api/v1/security"
 
 
 @pytest.fixture(scope="module")
@@ -23,7 +23,7 @@ def client():
 # Health Check
 # ===========================================================================
 def test_health(client):
-    resp = httpx.get("http://localhost:8007/health", timeout=10)
+    resp = httpx.get("http://127.0.0.1:8007/health", timeout=10)
     assert resp.status_code == 200
     body = resp.json()
     assert body["service"] == "security"

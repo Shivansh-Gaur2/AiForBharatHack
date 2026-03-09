@@ -66,6 +66,18 @@ class MigrationInfo:
 
 
 @dataclass(frozen=True)
+class BusinessDetails:
+    """Business/trade info for non-farming occupations (artisans, traders, etc.)."""
+    business_type: str                  # e.g. "Pottery", "Grocery Shop"
+    workspace_owned: bool = False
+    workspace_description: str = ""     # e.g. "Home workshop", "Rented shop in market"
+    monthly_revenue: float = 0.0
+    monthly_expenses: float = 0.0
+    investment_amount: float = 0.0      # Tools for artisan, inventory for trader
+    years_in_business: int = 0
+
+
+@dataclass(frozen=True)
 class LivelihoodInfo:
     primary_occupation: OccupationType
     secondary_occupations: list[OccupationType] = field(default_factory=list)
@@ -73,6 +85,7 @@ class LivelihoodInfo:
     crop_patterns: list[CropInfo] = field(default_factory=list)
     livestock: list[LivestockInfo] = field(default_factory=list)
     migration_patterns: list[MigrationInfo] = field(default_factory=list)
+    business_details: BusinessDetails | None = None
 
 
 @dataclass(frozen=True)

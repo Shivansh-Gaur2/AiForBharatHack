@@ -60,8 +60,9 @@ export function ProfileDetailPage() {
 
   const pi = profile.personal_info;
   const li = profile.livelihood_info;
-  const totalIncome = profile.income_records.reduce((s, r) => s + r.amount, 0);
-  const totalExpense = profile.expense_records.reduce((s, r) => s + r.amount, 0);
+  const totalIncome = profile.income_records.reduce((s, r) => s + r.amount, 0) || profile.estimated_annual_income;
+  const totalExpense = profile.expense_records.reduce((s, r) => s + r.amount, 0) || (profile.average_monthly_expense * 12);
+  const hasIncomeRecords = profile.income_records.length > 0;
 
   return (
     <div className="space-y-6">
@@ -121,19 +122,20 @@ export function ProfileDetailPage() {
       {/* KPI row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Total Income"
+          label={hasIncomeRecords ? "Total Income" : "Est. Annual Income"}
           value={formatCurrency(totalIncome)}
-          subtitle={`${profile.income_records.length} records`}
+          subtitle={hasIncomeRecords ? `${profile.income_records.length} records` : "from crop estimates"}
           icon={<TrendingUp className="h-5 w-5" />}
         />
         <StatCard
           label="Total Expenses"
           value={formatCurrency(totalExpense)}
-          subtitle={`${profile.expense_records.length} records`}
+          subtitle={profile.expense_records.length > 0 ? `${profile.expense_records.length} records` : "estimated"}
         />
         <StatCard
-          label="Net Position"
-          value={formatCurrency(totalIncome - totalExpense)}
+          label="Monthly Surplus"
+          value={formatCurrency(profile.monthly_surplus)}
+          subtitle={`Avg income: ${formatCurrency(profile.average_monthly_income)}/mo`}
         />
         <StatCard
           label="Primary Occupation"

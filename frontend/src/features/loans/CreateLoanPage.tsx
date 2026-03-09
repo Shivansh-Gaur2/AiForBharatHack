@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
-import { loanApi } from "@/api";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { ArrowLeft, User } from "lucide-react";
+import { loanApi, profileApi } from "@/api";
 import { Button, Card, CardTitle, Input, Select, AlertBanner } from "@/components/ui";
 import { LoanSourceType } from "@/types";
 import type { TrackLoanRequest } from "@/types";
@@ -18,6 +18,13 @@ export function CreateLoanPage() {
 
   const [profileId, setProfileId] = useState("");
   const [lenderName, setLenderName] = useState("");
+
+  const { data: profilesData, isLoading: loadingProfiles } = useQuery({
+    queryKey: ["profiles"],
+    queryFn: () => profileApi.list({ limit: 200 }),
+  });
+  const profiles = profilesData?.items ?? [];
+  const selectedProfile = profiles.find((p) => p.profile_id === profileId);
   const [sourceType, setSourceType] = useState<LoanSourceType>(LoanSourceType.FORMAL);
   const [principal, setPrincipal] = useState("");
   const [rate, setRate] = useState("");
@@ -30,6 +37,17 @@ export function CreateLoanPage() {
     onSuccess: (loan) => navigate(`/loans/${loan.tracking_id}`),
   });
 
+  // ── Compute EMI: P × r × (1+r)^n / ((1+r)^n − 1) ──
+  function computeEmi(p: number, annualRate: number, months: number): number {
+    if (p <= 0 || months <= 0) return 0;
+    if (annualRate <= 0) return Math.round(p / months);
+    const r = annualRate / 100 / 12;
+    const factor = Math.pow(1 + r, months);
+    return Math.round((p * r * factor) / (factor - 1));
+  }
+
+  const emiAmount = computeEmi(Number(principal), Number(rate), Number(tenure));
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     mutation.mutate({
@@ -40,7 +58,7 @@ export function CreateLoanPage() {
         principal: Number(principal),
         interest_rate_annual: Number(rate),
         tenure_months: Number(tenure),
-        emi_amount: 0,
+        emi_amount: emiAmount,
       },
       disbursement_date: disbursementDate,
       purpose: purpose || undefined,
@@ -74,13 +92,27 @@ export function CreateLoanPage() {
           <CardTitle className="mb-4">Loan Information</CardTitle>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Input
-                label="Borrower Profile ID"
+              <Select
+                label="Borrower Profile"
                 value={profileId}
                 onChange={(e) => setProfileId(e.target.value)}
+                options={
+                  loadingProfiles
+                    ? [{ value: "", label: "Loading profiles…" }]
+                    : profiles.map((p) => ({
+                        value: p.profile_id,
+                        label: `${p.name} — ${p.location}`,
+                      }))
+                }
                 required
-                placeholder="Enter profile ID"
               />
+              {selectedProfile && (
+                <div className="mt-2 flex items-center gap-2 rounded-lg bg-brand-50 border border-brand-200 px-3 py-2">
+                  <User className="h-4 w-4 text-brand-600" />
+                  <span className="text-sm font-medium text-brand-700">{selectedProfile.name}</span>
+                  <span className="text-xs text-brand-500">{selectedProfile.location}</span>
+                </div>
+              )}
             </div>
             <Input
               label="Lender Name"
@@ -137,6 +169,15 @@ export function CreateLoanPage() {
                 placeholder="e.g., Crop cultivation, Equipment purchase"
               />
             </div>
+
+            {emiAmount > 0 && (
+              <div className="sm:col-span-2 rounded-lg bg-brand-50 border border-brand-200 px-4 py-3">
+                <p className="text-sm text-brand-700">
+                  Estimated Monthly EMI:{" "}
+                  <span className="font-semibold">₹{emiAmount.toLocaleString("en-IN")}</span>
+                </p>
+              </div>
+            )}
           </div>
         </Card>
 

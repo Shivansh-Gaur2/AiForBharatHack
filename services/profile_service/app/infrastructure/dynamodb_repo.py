@@ -17,6 +17,7 @@ from typing import Any
 
 from services.profile_service.app.domain.models import (
     BorrowerProfile,
+    BusinessDetails,
     CropInfo,
     ExpenseRecord,
     IncomeRecord,
@@ -222,6 +223,15 @@ class DynamoDBProfileRepository:
                         "monthly_income": str(m.monthly_income),
                     } for m in profile.livelihood_info.migration_patterns
                 ],
+                "business_details": {
+                    "business_type": profile.livelihood_info.business_details.business_type,
+                    "workspace_owned": profile.livelihood_info.business_details.workspace_owned,
+                    "workspace_description": profile.livelihood_info.business_details.workspace_description,
+                    "monthly_revenue": str(profile.livelihood_info.business_details.monthly_revenue),
+                    "monthly_expenses": str(profile.livelihood_info.business_details.monthly_expenses),
+                    "investment_amount": str(profile.livelihood_info.business_details.investment_amount),
+                    "years_in_business": profile.livelihood_info.business_details.years_in_business,
+                } if profile.livelihood_info.business_details else None,
             },
             "income_records": [
                 {
@@ -278,6 +288,19 @@ class DynamoDBProfileRepository:
                 ownership_type=lh["ownership_type"],
             )
 
+        biz = None
+        if li.get("business_details"):
+            bd = li["business_details"]
+            biz = BusinessDetails(
+                business_type=bd["business_type"],
+                workspace_owned=bd.get("workspace_owned", False),
+                workspace_description=bd.get("workspace_description", ""),
+                monthly_revenue=float(bd.get("monthly_revenue", 0)),
+                monthly_expenses=float(bd.get("monthly_expenses", 0)),
+                investment_amount=float(bd.get("investment_amount", 0)),
+                years_in_business=int(bd.get("years_in_business", 0)),
+            )
+
         livelihood_info = LivelihoodInfo(
             primary_occupation=OccupationType(li["primary_occupation"]),
             secondary_occupations=[OccupationType(o) for o in li.get("secondary_occupations", [])],
@@ -306,6 +329,7 @@ class DynamoDBProfileRepository:
                     monthly_income=float(m["monthly_income"]),
                 ) for m in li.get("migration_patterns", [])
             ],
+            business_details=biz,
         )
 
         volatility_metrics = None

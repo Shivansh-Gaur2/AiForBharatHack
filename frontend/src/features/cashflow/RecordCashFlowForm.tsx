@@ -55,14 +55,18 @@ interface RecordRow {
   year: string;
 }
 
-function emptyRow(id: number): RecordRow {
+function emptyRow(id: number, monthOffset: number = 0): RecordRow {
+  // Default to different months so 3 entries naturally cover 3 months
+  // (required by forecast validation)
+  const d = new Date();
+  d.setMonth(d.getMonth() - monthOffset);
   return {
     id,
     direction: FlowDirection.INFLOW,
     category: "",
     amount: "",
-    month: String(new Date().getMonth() + 1),
-    year: String(currentYear),
+    month: String(d.getMonth() + 1),
+    year: String(d.getFullYear()),
   };
 }
 
@@ -72,8 +76,10 @@ interface Props {
 
 export function RecordCashFlowForm({ profileId }: Props) {
   const queryClient = useQueryClient();
-  const [rows, setRows] = useState<RecordRow[]>([emptyRow(1)]);
-  const [nextId, setNextId] = useState(2);
+  const [rows, setRows] = useState<RecordRow[]>([
+    emptyRow(1, 2), emptyRow(2, 1), emptyRow(3, 0),
+  ]);
+  const [nextId, setNextId] = useState(4);
   const [success, setSuccess] = useState(false);
 
   const mutation = useMutation({
@@ -92,8 +98,8 @@ export function RecordCashFlowForm({ profileId }: Props) {
     },
     onSuccess: () => {
       setSuccess(true);
-      setRows([emptyRow(nextId)]);
-      setNextId(nextId + 1);
+      setRows([emptyRow(nextId, 2), emptyRow(nextId + 1, 1), emptyRow(nextId + 2, 0)]);
+      setNextId(nextId + 3);
       queryClient.invalidateQueries({ queryKey: ["cashflow-forecast", profileId] });
       queryClient.invalidateQueries({ queryKey: ["cashflow-records", profileId] });
       setTimeout(() => setSuccess(false), 4000);
@@ -101,7 +107,7 @@ export function RecordCashFlowForm({ profileId }: Props) {
   });
 
   function addRow() {
-    setRows((prev) => [...prev, emptyRow(nextId)]);
+    setRows((prev) => [...prev, emptyRow(nextId, prev.length)]);
     setNextId((n) => n + 1);
   }
 
@@ -132,7 +138,10 @@ export function RecordCashFlowForm({ profileId }: Props) {
 
   return (
     <Card>
-      <CardTitle className="mb-4">Record Cash Flow</CardTitle>
+      <CardTitle className="mb-2">Record Cash Flow</CardTitle>
+      <p className="text-xs text-gray-500 mb-4">
+        Enter at least 3 records across 3 different months (with at least one income entry) to enable forecast generation.
+      </p>
       <form onSubmit={handleSubmit} className="space-y-4">
         {rows.map((row, idx) => {
           const categories =

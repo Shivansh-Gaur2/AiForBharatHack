@@ -1,7 +1,7 @@
 """End-to-end tests for the Early Warning & Scenarios service.
 
-Hits the running service on http://localhost:8084.
-Run after: uvicorn services.early_warning.app.main:app --port 8084
+Hits the running service on http://127.0.0.1:8005.
+Run after: uvicorn services.early_warning.app.main:app --host 127.0.0.1 --port 8005
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import pytest
 
 pytestmark = pytest.mark.e2e  # requires running service — skipped by default
 
-BASE = "http://localhost:8005/api/v1/early-warning"
+BASE = "http://127.0.0.1:8005/api/v1/early-warning"
 
 
 @pytest.fixture(scope="module")
@@ -23,7 +23,7 @@ def client():
 # Health Check
 # ===========================================================================
 def test_health():
-    r = httpx.get("http://localhost:8005/health")
+    r = httpx.get("http://127.0.0.1:8005/health")
     assert r.status_code == 200
     assert r.json()["service"] == "early-warning"
 

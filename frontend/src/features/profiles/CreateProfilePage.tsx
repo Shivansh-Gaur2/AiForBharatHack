@@ -224,58 +224,58 @@ export function CreateProfilePage() {
 
           {/* Crop entry */}
           <div className="mt-6 border-t border-gray-100 pt-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Crops</h4>
-            <div className="flex gap-3 items-end">
-              <Input
-                label="Crop Name"
-                value={cropName}
-                onChange={(e) => setCropName(e.target.value)}
-                placeholder="e.g., Paddy"
-              />
-              <Select
-                label="Season"
-                value={cropSeason}
-                onChange={(e) => setCropSeason(e.target.value as Season)}
-                options={SEASON_OPTIONS}
-              />
-              <Input
-                label="Area (acres)"
-                type="number"
-                min={0}
-                step={0.5}
-                value={cropArea}
-                onChange={(e) => setCropArea(e.target.value)}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddCrop}
-              >
-                Add
-              </Button>
-            </div>
-            {crops.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {crops.map((c, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700"
-                  >
-                    {c.crop_name} ({formatEnum(c.season)}, {c.area_acres}ac)
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCrops((prev) => prev.filter((_, idx) => idx !== i))
-                      }
-                      className="ml-1 text-green-400 hover:text-green-600"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Crops</h4>
+              <div className="flex gap-3 items-end">
+                <Input
+                  label="Crop Name"
+                  value={cropName}
+                  onChange={(e) => setCropName(e.target.value)}
+                  placeholder="e.g., Paddy"
+                />
+                <Select
+                  label="Season"
+                  value={cropSeason}
+                  onChange={(e) => setCropSeason(e.target.value as Season)}
+                  options={SEASON_OPTIONS}
+                />
+                <Input
+                  label="Area (acres)"
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={cropArea}
+                  onChange={(e) => setCropArea(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddCrop}
+                >
+                  Add
+                </Button>
               </div>
-            )}
+              {crops.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {crops.map((c, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700"
+                    >
+                      {c.crop_name} ({formatEnum(c.season)}, {c.area_acres}ac)
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCrops((prev) => prev.filter((_, idx) => idx !== i))
+                        }
+                        className="ml-1 text-green-400 hover:text-green-600"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
           </div>
         </Card>
 

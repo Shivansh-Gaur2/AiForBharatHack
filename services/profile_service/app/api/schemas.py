@@ -58,6 +58,16 @@ class MigrationInfoDTO(BaseModel):
     season: str = Field("KHARIF", pattern=r"^(KHARIF|RABI|ZAID)$")
 
 
+class BusinessDetailsDTO(BaseModel):
+    business_type: str = Field(..., min_length=1, max_length=200)
+    workspace_owned: bool = False
+    workspace_description: str = ""
+    monthly_revenue: float = Field(0, ge=0)
+    monthly_expenses: float = Field(0, ge=0)
+    investment_amount: float = Field(0, ge=0)
+    years_in_business: int = Field(0, ge=0)
+
+
 class LivelihoodInfoDTO(BaseModel):
     primary_occupation: str
     secondary_occupations: list[str] = Field(default_factory=list)
@@ -65,6 +75,7 @@ class LivelihoodInfoDTO(BaseModel):
     crops: list[CropInfoDTO] = Field(default_factory=list)
     livestock: list[LivestockInfoDTO] = Field(default_factory=list)
     migration_patterns: list[MigrationInfoDTO] = Field(default_factory=list)
+    business_details: BusinessDetailsDTO | None = None
 
 
 class IncomeRecordDTO(BaseModel):
@@ -128,7 +139,7 @@ class VolatilityMetricsDTO(BaseModel):
     income_range_ratio: float
     seasonal_variance: float
     months_below_average: int
-    volatility_category: str
+    volatility_level: str
 
 
 class ProfileSummaryDTO(BaseModel):

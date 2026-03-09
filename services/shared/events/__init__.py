@@ -106,8 +106,16 @@ class SNSEventPublisher:
                 "Published event %s to %s", event.event_type, self._topic_arn
             )
         except Exception:
-            logger.exception("Failed to publish event %s", event.event_type)
-            raise
+            # Log-and-swallow — domain work already succeeded;
+            # downstream consumers will eventually catch up via a
+            # DLQ replay or polling reconciliation.
+            logger.exception(
+                "Failed to publish event %s (aggregate=%s) to %s — "
+                "message will be retried via DLQ reconciliation",
+                event.event_type,
+                event.aggregate_id,
+                self._topic_arn,
+            )
 
 
 class AsyncSNSEventPublisher:

@@ -255,7 +255,7 @@ class HttpProfileDataProvider:
 
             personal = data.get("personal_info", {})
             livelihood = data.get("livelihood_info", {})
-            crops = livelihood.get("crop_patterns", [])
+            crops = livelihood.get("crops", []) or livelihood.get("crop_patterns", [])
             primary_crop = crops[0]["crop_name"] if crops else "unknown"
 
             return {

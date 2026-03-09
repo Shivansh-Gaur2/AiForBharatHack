@@ -1,7 +1,7 @@
 """End-to-end tests for the Guidance & Intelligence service.
 
-Hits the running service on http://localhost:8085.
-Run after: uvicorn services.guidance.app.main:app --port 8085
+Hits the running service on http://127.0.0.1:8006.
+Run after: uvicorn services.guidance.app.main:app --host 127.0.0.1 --port 8006
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import pytest
 
 pytestmark = pytest.mark.e2e  # requires running service — skipped by default
 
-BASE = "http://localhost:8006/api/v1/guidance"
+BASE = "http://127.0.0.1:8006/api/v1/guidance"
 
 
 @pytest.fixture(scope="module")
@@ -50,7 +50,7 @@ def _create_direct_guidance(client, *, profile_id: str = "e2e-prof-1", **overrid
 # Health Check
 # ===========================================================================
 def test_health():
-    r = httpx.get("http://localhost:8006/health")
+    r = httpx.get("http://127.0.0.1:8006/health")
     assert r.status_code == 200
     assert r.json()["service"] == "guidance"
 

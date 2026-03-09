@@ -41,6 +41,16 @@ export interface MigrationInfo {
   season: Season;
 }
 
+export interface BusinessDetails {
+  business_type: string;
+  workspace_owned: boolean;
+  workspace_description: string;
+  monthly_revenue: number;
+  monthly_expenses: number;
+  investment_amount: number;
+  years_in_business: number;
+}
+
 export interface LivelihoodInfo {
   primary_occupation: OccupationType;
   secondary_occupations: OccupationType[];
@@ -48,6 +58,7 @@ export interface LivelihoodInfo {
   crops: CropInfo[];
   livestock: LivestockInfo[];
   migration_patterns: MigrationInfo[];
+  business_details?: BusinessDetails;
 }
 
 export interface IncomeRecord {
@@ -92,6 +103,10 @@ export interface ProfileDetail {
   expense_records: ExpenseRecord[];
   seasonal_factors: SeasonalFactor[];
   volatility_metrics: VolatilityMetrics | null;
+  average_monthly_income: number;
+  average_monthly_expense: number;
+  monthly_surplus: number;
+  estimated_annual_income: number;
   created_at: string;
   updated_at: string;
 }

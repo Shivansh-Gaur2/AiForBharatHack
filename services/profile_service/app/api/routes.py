@@ -19,6 +19,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from services.profile_service.app.domain.models import (
+    BusinessDetails,
     CropInfo,
     ExpenseRecord,
     IncomeRecord,
@@ -95,6 +96,18 @@ def _to_livelihood_info(dto) -> LivelihoodInfo:
             rain_fed_acres=round(total - irrigated, 2),
             ownership_type="OWNED" if ld.leased_acres == 0 else "LEASED",
         )
+    biz = None
+    if dto.business_details is not None:
+        b = dto.business_details
+        biz = BusinessDetails(
+            business_type=b.business_type,
+            workspace_owned=b.workspace_owned,
+            workspace_description=b.workspace_description,
+            monthly_revenue=b.monthly_revenue,
+            monthly_expenses=b.monthly_expenses,
+            investment_amount=b.investment_amount,
+            years_in_business=b.years_in_business,
+        )
     return LivelihoodInfo(
         primary_occupation=OccupationType(dto.primary_occupation),
         secondary_occupations=[OccupationType(o) for o in dto.secondary_occupations],
@@ -123,6 +136,7 @@ def _to_livelihood_info(dto) -> LivelihoodInfo:
                 monthly_income=m.monthly_income,
             ) for m in dto.migration_patterns
         ],
+        business_details=biz,
     )
 
 
@@ -159,6 +173,7 @@ def _to_seasonal_factors(dtos) -> list[SeasonalFactor]:
 # ---------------------------------------------------------------------------
 def _to_profile_detail(profile) -> ProfileDetailDTO:
     from .schemas import (
+        BusinessDetailsDTO,
         CropInfoDTO,
         ExpenseRecordDTO,
         IncomeRecordDTO,
@@ -214,6 +229,15 @@ def _to_profile_detail(profile) -> ProfileDetailDTO:
                     season="KHARIF",
                 ) for m in profile.livelihood_info.migration_patterns
             ],
+            business_details=BusinessDetailsDTO(
+                business_type=profile.livelihood_info.business_details.business_type,
+                workspace_owned=profile.livelihood_info.business_details.workspace_owned,
+                workspace_description=profile.livelihood_info.business_details.workspace_description,
+                monthly_revenue=profile.livelihood_info.business_details.monthly_revenue,
+                monthly_expenses=profile.livelihood_info.business_details.monthly_expenses,
+                investment_amount=profile.livelihood_info.business_details.investment_amount,
+                years_in_business=profile.livelihood_info.business_details.years_in_business,
+            ) if profile.livelihood_info.business_details else None,
         ),
         income_records=[
             IncomeRecordDTO(
@@ -240,7 +264,7 @@ def _to_profile_detail(profile) -> ProfileDetailDTO:
             income_range_ratio=profile.volatility_metrics.income_range_ratio,
             seasonal_variance=profile.volatility_metrics.seasonal_variance,
             months_below_average=profile.volatility_metrics.months_below_average,
-            volatility_category=profile.volatility_metrics.volatility_category,
+            volatility_level=profile.volatility_metrics.volatility_category,
         ) if profile.volatility_metrics else None,
         average_monthly_income=profile.get_average_monthly_income(),
         average_monthly_expense=profile.get_average_monthly_expense(),
@@ -430,7 +454,7 @@ def get_volatility(
             income_range_ratio=metrics.income_range_ratio,
             seasonal_variance=metrics.seasonal_variance,
             months_below_average=metrics.months_below_average,
-            volatility_category=metrics.volatility_category,
+            volatility_level=metrics.volatility_category,
         )
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Profile not found: {profile_id}") from None
