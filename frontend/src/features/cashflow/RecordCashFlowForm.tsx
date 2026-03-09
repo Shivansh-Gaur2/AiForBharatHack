@@ -199,7 +199,7 @@ export function RecordCashFlowForm({ profileId }: Props) {
                   label="Amount (₹)"
                   type="number"
                   min={1}
-                  step={100}
+                  step="any"
                   value={row.amount}
                   onChange={(e) =>
                     updateRow(row.id, "amount", e.target.value)
