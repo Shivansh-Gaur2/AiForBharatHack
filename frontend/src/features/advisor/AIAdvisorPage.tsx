@@ -69,8 +69,8 @@ export function AIAdvisorPage() {
 
   // Fetch all profiles for the dropdown
   const { data: profilesData, isLoading: profilesLoading } = useQuery({
-    queryKey: ["advisor-profiles-list"],
-    queryFn: () => profileApi.list({ limit: 100 }),
+    queryKey: ["profiles"],
+    queryFn: () => profileApi.list({ limit: 200 }),
   });
   const profiles = profilesData?.items ?? [];
 
