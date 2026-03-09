@@ -60,6 +60,7 @@ docker-compose.override.yml
 # AWS SAM
 .aws-sam/
 samconfig.toml
+_staging/
 
 # Logs
 *.log

@@ -13,11 +13,7 @@ Globals:
         SNS_TOPIC_ARN: !Ref EarlyWarningTopic
         AWS_REGION_OVERRIDE: !Ref AWS::Region
         ENVIRONMENT: production
-
-Parameters:
-  StageName:
-    Type: String
-    Default: prod
+        STORAGE_BACKEND: dynamodb
 
 Resources:
   # ---------- DynamoDB ----------
@@ -53,7 +49,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref EarlyWarningTable
         - SNSPublishMessagePolicy:
-            TopicArn: !Ref EarlyWarningTopic
+            TopicName: !GetAtt EarlyWarningTopic.TopicName
       Events:
         ApiCatchAll:
           Type: HttpApi
@@ -65,13 +61,11 @@ Resources:
   # ---------- API Gateway ----------
   HttpApi:
     Type: AWS::Serverless::HttpApi
-    Properties:
-      StageName: !Ref StageName
 
 Outputs:
   ApiUrl:
     Description: Early Warning API endpoint
-    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
   TableName:
     Value: !Ref EarlyWarningTable
   TopicArn:

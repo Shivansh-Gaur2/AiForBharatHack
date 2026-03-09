@@ -5,7 +5,7 @@
  * quick analysis, and scenario analysis.
  */
 
-import { httpClient, ApiError } from "./client";
+import { httpClient } from "./client";
 
 // ---------------------------------------------------------------------------
 // Types

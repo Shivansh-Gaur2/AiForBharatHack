@@ -13,13 +13,13 @@ Globals:
   Function:
     Timeout: 30
     MemorySize: 256
-    Runtime: python3.12
+    Runtime: python3.13
     Environment:
       Variables:
         DYNAMODB_TABLE_NAME: !Ref ProfilesTable
         SNS_TOPIC_ARN: !Ref ProfileEventsTopic
-        AWS_REGION: !Ref AWS::Region
         ENVIRONMENT: production
+        STORAGE_BACKEND: dynamodb
         SKIP_AUTH: "false"
         LOG_LEVEL: INFO
 
@@ -31,7 +31,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: services.profile_service.app.main.handler
-      CodeUri: ../
+      CodeUri: ../../
       Description: Profile Service — borrower profile management
       Architectures:
         - x86_64
@@ -60,7 +60,6 @@ Resources:
   ProfileHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
-      StageName: v1
       CorsConfiguration:
         AllowOrigins:
           - "*"
@@ -107,7 +106,7 @@ Resources:
 Outputs:
   ProfileApiUrl:
     Description: "API Gateway endpoint URL"
-    Value: !Sub "https://${ProfileHttpApi}.execute-api.${AWS::Region}.amazonaws.com/v1/"
+    Value: !Sub "https://${ProfileHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
 
   ProfilesTableName:
     Description: "DynamoDB table name"

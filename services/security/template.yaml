@@ -6,11 +6,12 @@ Globals:
   Function:
     Timeout: 30
     MemorySize: 256
-    Runtime: python3.12
+    Runtime: python3.13
     Environment:
       Variables:
         LOG_LEVEL: INFO
         ENVIRONMENT: production
+        STORAGE_BACKEND: dynamodb
 
 Resources:
   # DynamoDB table
@@ -61,7 +62,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref SecurityTable
         - SNSPublishMessagePolicy:
-            TopicArn: !Ref SecurityEventsTopic
+            TopicName: !GetAtt SecurityEventsTopic.TopicName
       Events:
         ApiCatchAll:
           Type: HttpApi

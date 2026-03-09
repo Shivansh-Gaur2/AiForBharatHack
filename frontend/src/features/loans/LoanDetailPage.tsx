@@ -107,7 +107,7 @@ export function LoanDetailPage() {
               <dt className="text-gray-500">Maturity Date</dt>
               <dd className="font-medium flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                {formatDate(loan.maturity_date)}
+                {loan.maturity_date ? formatDate(loan.maturity_date) : "N/A"}
               </dd>
             </div>
             <div className="flex justify-between">

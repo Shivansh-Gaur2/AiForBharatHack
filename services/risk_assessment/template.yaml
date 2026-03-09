@@ -13,15 +13,15 @@ Globals:
   Function:
     Timeout: 30
     MemorySize: 256
-    Runtime: python3.12
+    Runtime: python3.13
     Environment:
       Variables:
         DYNAMODB_TABLE_NAME: !Ref RiskTable
         SNS_TOPIC_ARN: !Ref RiskEventsTopic
         PROFILE_SERVICE_URL: !Ref ProfileServiceUrl
         LOAN_SERVICE_URL: !Ref LoanServiceUrl
-        AWS_REGION: !Ref AWS::Region
         ENVIRONMENT: production
+        STORAGE_BACKEND: dynamodb
         SKIP_AUTH: "false"
         LOG_LEVEL: INFO
 
@@ -36,6 +36,14 @@ Parameters:
     Default: ""
     Description: URL of the Loan Tracker Service API
 
+  LoanEventsTopicArn:
+    Type: String
+    Default: ""
+    Description: ARN of the Loan Events SNS topic (cross-service)
+
+Conditions:
+  HasLoanEventsTopic: !Not [!Equals [!Ref LoanEventsTopicArn, ""]]
+
 Resources:
   # -----------------------------------------------------------------------
   # Lambda Function
@@ -44,7 +52,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: services.risk_assessment.app.main.handler
-      CodeUri: ../
+      CodeUri: ../../
       Description: Risk Assessment Service — multi-factor risk scoring
       Architectures:
         - x86_64
@@ -73,7 +81,6 @@ Resources:
   RiskHttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
-      StageName: v1
       CorsConfiguration:
         AllowOrigins:
           - "*"
@@ -122,20 +129,16 @@ Resources:
   # -----------------------------------------------------------------------
   LoanEventsSubscription:
     Type: AWS::SNS::Subscription
+    Condition: HasLoanEventsTopic
     Properties:
       Protocol: lambda
       TopicArn: !Ref LoanEventsTopicArn
       Endpoint: !GetAtt RiskAssessmentFunction.Arn
 
-  LoanEventsTopicArn:
-    Type: String
-    Default: ""
-    Description: ARN of the Loan Events SNS topic (cross-service)
-
 Outputs:
   RiskApiUrl:
     Description: "API Gateway endpoint URL"
-    Value: !Sub "https://${RiskHttpApi}.execute-api.${AWS::Region}.amazonaws.com/v1/"
+    Value: !Sub "https://${RiskHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
 
   RiskTableName:
     Description: "DynamoDB table name"

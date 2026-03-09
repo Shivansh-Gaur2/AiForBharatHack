@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Rural Credit Advisor - AI Advisor Service",
     description=(
-        "Conversational AI advisor powered by Amazon Bedrock. "
+        "Conversational AI advisor powered by Groq (Llama 3.3 70B). "
         "Aggregates data from all micro-services to provide "
         "personalised credit guidance for rural borrowers."
     ),
@@ -134,13 +134,7 @@ configure_auth()
 # CORS — allow frontend dev server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "http://localhost:3003",
-        "http://localhost:5173",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

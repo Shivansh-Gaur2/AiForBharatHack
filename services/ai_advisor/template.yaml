@@ -5,12 +5,13 @@ Description: AI Advisor Service - Conversational AI for rural credit guidance
 Globals:
   Function:
     Timeout: 30
-    Runtime: python3.12
+    Runtime: python3.13
     MemorySize: 512
     Environment:
       Variables:
         LOG_LEVEL: INFO
         ENVIRONMENT: production
+        STORAGE_BACKEND: dynamodb
 
 Resources:
   AIAdvisorFunction:
@@ -21,8 +22,9 @@ Resources:
       Description: AI Advisor - conversational credit guidance
       Environment:
         Variables:
-          BEDROCK_MODEL_ID: !Ref BedrockModelId
-          BEDROCK_REGION: !Ref BedrockRegion
+          LLM_PROVIDER: "groq"
+          GROQ_API_KEY: !Ref GroqApiKey
+          GROQ_MODEL_ID: !Ref GroqModelId
           USE_STUB_LLM: "false"
           PROFILE_SERVICE_URL: !Ref ProfileServiceUrl
           RISK_SERVICE_URL: !Ref RiskServiceUrl
@@ -38,21 +40,30 @@ Resources:
             Method: ANY
 
 Parameters:
-  BedrockModelId:
+  GroqApiKey:
     Type: String
-    Default: us.amazon.nova-micro-v1:0
-  BedrockRegion:
+    NoEcho: true
+    Description: Groq API key for Llama inference
+    Default: ""
+  GroqModelId:
     Type: String
-    Default: us-east-1
+    Default: llama-3.3-70b-versatile
+    Description: Groq model ID (Llama 3.3 70B)
   ProfileServiceUrl:
     Type: String
+    Default: ""
   RiskServiceUrl:
     Type: String
+    Default: ""
   CashFlowServiceUrl:
     Type: String
+    Default: ""
   LoanServiceUrl:
     Type: String
+    Default: ""
   EarlyWarningServiceUrl:
     Type: String
+    Default: ""
   GuidanceServiceUrl:
     Type: String
+    Default: ""

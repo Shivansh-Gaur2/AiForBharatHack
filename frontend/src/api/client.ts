@@ -1,9 +1,19 @@
 import axios from "axios";
+import { resolveUrl } from "./config";
 
 /** Shared Axios instance — all service-specific clients derive from this. */
 export const httpClient = axios.create({
   timeout: 30_000,
   headers: { "Content-Type": "application/json" },
+});
+
+// ─── Request interceptor: resolve service URLs for production ───────────────
+
+httpClient.interceptors.request.use((config) => {
+  if (config.url) {
+    config.url = resolveUrl(config.url);
+  }
+  return config;
 });
 
 // ─── Response interceptor: unwrap data, normalise errors ────────────────────

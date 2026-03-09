@@ -345,19 +345,19 @@ class DynamoDBSecurityRepository:
         })
 
     async def find_user_by_id(self, user_id: str) -> User | None:
-        resp = self._table.get_item(Key={
-            "PK": f"USER#{user_id}",
-            "SK": "METADATA",
-        })
+        resp = self._table.get_item(
+            Key={"PK": f"USER#{user_id}", "SK": "METADATA"},
+            ConsistentRead=True,
+        )
         item = resp.get("Item")
         return self._item_to_user(item) if item else None
 
     async def find_user_by_email(self, email: str) -> User | None:
         email = email.lower().strip()
-        resp = self._table.get_item(Key={
-            "PK": f"USER_EMAIL#{email}",
-            "SK": "LOOKUP",
-        })
+        resp = self._table.get_item(
+            Key={"PK": f"USER_EMAIL#{email}", "SK": "LOOKUP"},
+            ConsistentRead=True,
+        )
         lookup = resp.get("Item")
         if not lookup:
             return None

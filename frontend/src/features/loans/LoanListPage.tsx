@@ -37,8 +37,8 @@ export function LoanListPage() {
   // Auto-select the first profile once profiles load if nothing is selected
   useEffect(() => {
     if (profiles.length > 0 && !profileId && !searchId) {
-      setProfileId(profiles[0].profile_id);
-      setSearchId(profiles[0].profile_id);
+      setProfileId(profiles[0]!.profile_id);
+      setSearchId(profiles[0]!.profile_id);
     }
   }, [profiles]);
 

@@ -1,0 +1,71 @@
+# ──────────────────────────────────────────────
+# .samignore — Exclude files from SAM Lambda packages
+# Keeps only: services/ (source code) + requirements.txt
+# ──────────────────────────────────────────────
+
+# Virtual environment (922 MB!)
+.venv/
+
+# Frontend (183 MB)
+frontend/
+
+# ML Pipeline (not needed in Lambda)
+ml-pipeline/
+
+# Infrastructure configs
+infra/
+
+# Scripts
+scripts/
+
+# Tests (root level)
+tests/
+
+# Build artifacts
+.aws-sam/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# Git / IDE / Cache
+.git/
+.github/
+.gitignore
+.vscode/
+.mypy_cache/
+.pytest_cache/
+.hypothesis/
+
+# Root-level test/config files not needed in Lambda
+test_*.py
+seed_*.py
+check_*.py
+pytest_output.txt
+test_output.txt
+pyproject.toml
+design.md
+implementation-plan.md
+requirements.md
+README.md
+deploy.ps1
+requirements-local.txt
+
+# Node artifacts (if any at root)
+node_modules/
+package*.json
+
+# Docker files
+docker-compose*.yml
+Dockerfile*
+
+# Service test directories and build artifacts
+services/*/tests/
+services/*/.aws-sam/
+services/*/__pycache__/
+services/shared/__pycache__/
+services/shared/rural_credit_shared.egg-info/

@@ -7,11 +7,16 @@ A single class that satisfies all four repository protocol contracts:
   - RetentionPolicyRepository
 
 Default storage backend for local development and testing — no AWS needed.
+User data is persisted to a JSON file so accounts survive service restarts.
 """
 
 from __future__ import annotations
 
-from services.security.app.domain.auth_models import User
+import json
+import logging
+from pathlib import Path
+
+from services.security.app.domain.auth_models import User, UserRole
 from services.security.app.domain.models import (
     AuditEntry,
     Consent,
@@ -21,6 +26,11 @@ from services.security.app.domain.models import (
     DataLineageRecord,
     RetentionPolicy,
 )
+
+logger = logging.getLogger(__name__)
+
+# File where registered users are persisted across restarts
+_USER_STORE_PATH = Path(__file__).resolve().parents[4] / ".local_users.json"
 
 
 class InMemorySecurityRepository:
@@ -58,6 +68,9 @@ class InMemorySecurityRepository:
         self._users: dict[str, User] = {}
         # email (lowercased) → user_id
         self._users_by_email: dict[str, str] = {}
+
+        # Restore persisted users from disk
+        self._load_users_from_disk()
 
     # ======================================================================
     # ConsentRepository
@@ -180,9 +193,58 @@ class InMemorySecurityRepository:
     # UserRepository  (used by AuthService)
     # ======================================================================
 
+    def _persist_users_to_disk(self) -> None:
+        """Write all users to a JSON file so they survive restarts."""
+        try:
+            data = []
+            for u in self._users.values():
+                data.append({
+                    "user_id": u.user_id,
+                    "email": u.email,
+                    "password_hash": u.password_hash,
+                    "salt": u.salt,
+                    "full_name": u.full_name,
+                    "roles": [r.value for r in u.roles],
+                    "is_active": u.is_active,
+                    "created_at": u.created_at.isoformat(),
+                    "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
+                })
+            _USER_STORE_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except Exception:
+            logger.warning("Failed to persist users to disk", exc_info=True)
+
+    def _load_users_from_disk(self) -> None:
+        """Restore users from the JSON file on startup."""
+        if not _USER_STORE_PATH.exists():
+            return
+        try:
+            from datetime import datetime, UTC
+            data = json.loads(_USER_STORE_PATH.read_text(encoding="utf-8"))
+            for item in data:
+                last_login = None
+                if item.get("last_login_at"):
+                    last_login = datetime.fromisoformat(item["last_login_at"])
+                user = User(
+                    user_id=item["user_id"],
+                    email=item["email"],
+                    password_hash=item["password_hash"],
+                    salt=item["salt"],
+                    full_name=item["full_name"],
+                    roles=[UserRole(r) for r in item.get("roles", ["CREDIT_OFFICER"])],
+                    is_active=item.get("is_active", True),
+                    created_at=datetime.fromisoformat(item["created_at"]),
+                    last_login_at=last_login,
+                )
+                self._users[user.user_id] = user
+                self._users_by_email[user.email.lower()] = user.user_id
+            logger.info("Loaded %d user(s) from disk", len(data))
+        except Exception:
+            logger.warning("Failed to load users from disk", exc_info=True)
+
     async def save_user(self, user: User) -> None:
         self._users[user.user_id] = user
         self._users_by_email[user.email.lower()] = user.user_id
+        self._persist_users_to_disk()
 
     async def find_user_by_id(self, user_id: str) -> User | None:
         return self._users.get(user_id)
@@ -197,3 +259,4 @@ class InMemorySecurityRepository:
         """Persist a mutated User object (e.g. updated last_login_at)."""
         self._users[user.user_id] = user
         self._users_by_email[user.email.lower()] = user.user_id
+        self._persist_users_to_disk()

@@ -18,7 +18,6 @@ import type {
   ConsentDTO,
   AuditEntryDTO,
   RetentionPolicyDTO,
-  DataUsageSummaryDTO,
 } from "@/api/security";
 
 /**

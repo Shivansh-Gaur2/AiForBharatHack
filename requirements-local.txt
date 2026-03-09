@@ -1,0 +1,5 @@
+# ──────────────────────────────────────────────
+# Root requirements — installs everything for local dev
+# ──────────────────────────────────────────────
+-e services/shared
+-r services/profile_service/requirements-dev.txt
