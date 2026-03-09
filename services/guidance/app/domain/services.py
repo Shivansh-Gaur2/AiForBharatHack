@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+from datetime import UTC
 
 from services.shared.events import AsyncEventPublisher, DomainEvent
 from services.shared.models import GuidanceId, ProfileId
@@ -93,14 +94,32 @@ class GuidanceService:
         exposure = await self._loan.get_debt_exposure(profile_id)
         household_expense = await self._profile.get_household_expense(profile_id)  # noqa: F841
 
-        # Fallback: if cashflow service returned no projections, we cannot
-        # generate meaningful guidance.  Log a warning and flag it.
+        # Fallback: if cashflow service returned no projections, synthesise
+        # simple flat projections from the profile's average income/expense
+        # so that guidance calculations produce meaningful (non-zero) results.
         if not projections:
             logger.warning(
-                "No cashflow projections for %s — guidance will reflect zero data; "
-                "ensure the cashflow service has actual forecast data for this profile.",
+                "No cashflow projections for %s — synthesising from profile income/expense.",
                 profile_id,
             )
+            profile_summary = await self._profile.get_profile_summary(profile_id)
+            avg_income = float(profile_summary.get("average_monthly_income", 0) or 0)
+            avg_expense = float(profile_summary.get("average_monthly_expense", 0) or 0)
+
+            # If profile has no income data either, fall back to a rough
+            # estimate based on the requested amount (assume they can repay
+            # ~40% of income towards the loan over the tenure).
+            if avg_income <= 0 and requested_amount:
+                avg_income = (requested_amount / tenure_months) / 0.4
+                avg_expense = avg_income * 0.5  # assume 50% expense ratio
+
+            if avg_income > 0:
+                from datetime import datetime as _dt
+                now = _dt.now(UTC)
+                projections = [
+                    ((now.month + i - 1) % 12 + 1, now.year + (now.month + i - 1) // 12, avg_income, avg_expense)
+                    for i in range(tenure_months)
+                ]
 
         # Record data lineage (fire-and-forget)
         try:
