@@ -299,6 +299,23 @@ def recommend_loan_amount(
             # Requested too much — cap at what they can afford
             max_principal = max_principal
 
+    # Fallback: when surplus-based calc yields zero but the borrower has a
+    # reasonable risk profile and requested an amount, provide a
+    # conservative range using gross inflow instead of surplus so the
+    # guidance is still useful (scaled down by risk factor).
+    if max_principal <= 0.0 and requested_amount and requested_amount > 0:
+        avg_inflow = sum(c.projected_inflow for c in monthly_capacities) / len(monthly_capacities)
+        if avg_inflow > 0:
+            # Use a conservative fraction of gross inflow as affordable EMI
+            conservative_emi = avg_inflow * risk_factor * 0.3
+            fallback_max = _emi_to_principal(conservative_emi, interest_rate_annual, tenure_months)
+            max_principal = min(fallback_max, requested_amount)
+            min_principal = max_principal * 0.6
+        else:
+            # Last resort: use requested amount scaled by risk factor
+            max_principal = requested_amount * risk_factor
+            min_principal = max_principal * 0.6
+
     return AmountRange(
         min_amount=round(max(min_principal, 0.0), 2),
         max_amount=round(max(max_principal, 0.0), 2),
