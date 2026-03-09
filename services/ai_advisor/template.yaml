@@ -38,6 +38,9 @@ Resources:
           Properties:
             Path: /{proxy+}
             Method: ANY
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: rural-credit-conversations
 
 Parameters:
   GroqApiKey:
