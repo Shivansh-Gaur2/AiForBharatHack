@@ -23,6 +23,7 @@ Globals:
         SKIP_AUTH: "false"
         LOG_LEVEL: INFO
         FIELD_ENCRYPTION_KEY: "GKUHGqvp0eIm9o_SuPk_Jbt25rV4pHc4IWE2bGbNGgE="
+        AUTO_SEED: "false"
 
 Resources:
   # -----------------------------------------------------------------------
